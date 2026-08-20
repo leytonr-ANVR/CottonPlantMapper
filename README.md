@@ -1,15 +1,17 @@
-# Cotton Plant Mapper v23
+# Cotton Plant Mapper v24
 
-Corrected the legend artwork.
+GUI update to closely match the supplied AGnVET Rural mock-up.
 
-The previous legend was still rendering the older simplified matplotlib symbols.
-v23 replaces those drawing functions themselves, so both the legend and plant map now use the updated cotton-style artwork:
+New:
+- compact branded header with Export PDF, Export PNG, Clear Map and Save
+- horizontal Report Details row
+- left Data Entry / Summary / Settings panel
+- central map with working Zoom In, Zoom Out and Fit buttons
+- mouse-wheel zoom over the map
+- right Legend and Node Types panels
+- bottom metric cards
+- editable node Type and Pos 1 / Pos 2 / Pos 3
+- Add Node / Remove Last Node / Auto Fill controls
 
-- full green Boll with pointed bracts
-- larger White Flower
-- pointed green Square
-- visibly open Cracked Boll with white cotton
-- brown dashed Missing Fruit
-- green open Position (Empty)
-
-The legend symbols have also been enlarged for readability.
+Run:
+streamlit run app.py
