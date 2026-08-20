@@ -2,8 +2,10 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from matplotlib.patches import Circle, Ellipse, Polygon
 from io import BytesIO
+from pathlib import Path
 import numpy as np
 
 st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌿", layout="wide")
@@ -305,7 +307,7 @@ def draw_symbol(ax, x, y, fruit, scale=0.13):
     elif fruit == "Missing Fruit":
         draw_missing(ax, x, y, scale)
 
-def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
+def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, report_date, show_labels=True):
     df = matrix_to_long(matrix_df)
     metrics = calculate_metrics(matrix_df)
 
@@ -423,7 +425,40 @@ def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
                 fontsize=8, fontweight="bold", color="#1F1F1F",
                 ha="right" if side > 0 else "left", va="center", zorder=11)
 
-    ax.set_title(title, fontsize=17, fontweight="bold", pad=40)
+    ax.set_title(title, fontsize=17, fontweight="bold", pad=72)
+
+    # AGnVET Rural logo on report/map.
+    try:
+        logo_path = Path(__file__).with_name("agnvet_rural_logo.png")
+        if logo_path.exists():
+            logo_img = mpimg.imread(str(logo_path))
+            logo_ax = fig.add_axes([0.065, 0.925, 0.16, 0.065])
+            logo_ax.imshow(logo_img)
+            logo_ax.axis("off")
+    except Exception:
+        pass
+
+    # Farm / paddock / grower / date details.
+    detail_lines = []
+    if farm:
+        detail_lines.append(f"Farm: {farm}")
+    if paddock:
+        detail_lines.append(f"Paddock: {paddock}")
+    if grower:
+        detail_lines.append(f"Grower: {grower}")
+    if report_date:
+        detail_lines.append(f"Date: {report_date}")
+
+    if detail_lines:
+        ax.text(
+            0.5, 1.085,
+            "    |    ".join(detail_lines),
+            transform=ax.transAxes,
+            ha="center", va="bottom",
+            fontsize=10,
+            color="#333333",
+            zorder=20
+        )
 
     retention_text = (
         f"{metrics['retention']:.1f}%"
@@ -480,6 +515,10 @@ def fig_to_pdf(fig):
     buf.seek(0)
     return buf
 
+logo_file = Path(__file__).with_name("agnvet_rural_logo.png")
+if logo_file.exists():
+    st.image(str(logo_file), width=260)
+
 st.title("🌿 Cotton Plant Mapper")
 st.caption(
     "Map cotton fruiting by node and position, then generate a plant-style diagram using cotton squares, flowers, bolls and fruiting scars."
@@ -496,6 +535,14 @@ with st.sidebar:
         step=1
     )
     plant_name = st.text_input("Plant / sample name", value="Cotton Plant Map")
+
+    st.divider()
+    st.subheader("Report details")
+    farm = st.text_input("Farm", value="")
+    paddock = st.text_input("Paddock name", value="")
+    grower = st.text_input("Grower", value="")
+    report_date = st.date_input("Date")
+
     show_labels = st.checkbox("Show node-position labels", value=True)
 
 if "plant_matrix" not in st.session_state:
@@ -595,6 +642,10 @@ with tab2:
         int(min_node),
         int(max_node),
         plant_name,
+        farm,
+        paddock,
+        grower,
+        report_date.strftime("%d/%m/%Y") if report_date else "",
         show_labels,
     )
     st.pyplot(fig, use_container_width=False)
@@ -621,6 +672,18 @@ with tab2:
 with tab3:
     long_df = matrix_to_long(st.session_state.plant_matrix)
     metrics = calculate_metrics(st.session_state.plant_matrix)
+
+    st.markdown("#### Report details")
+    details_df = pd.DataFrame({
+        "Field": ["Farm", "Paddock", "Grower", "Date"],
+        "Value": [
+            farm or "—",
+            paddock or "—",
+            grower or "—",
+            report_date.strftime("%d/%m/%Y") if report_date else "—",
+        ],
+    })
+    st.dataframe(details_df, use_container_width=True, hide_index=True)
 
     st.markdown("#### Plant totals")
     total_cols = st.columns(3)

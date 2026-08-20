@@ -1,13 +1,18 @@
-# Cotton Plant Mapper v8
+# Cotton Plant Mapper v9
 
-Updated the plant-map symbols to more closely match the supplied cotton growth-stage illustration.
+Adds AGnVET Rural branding and report details.
 
-### Updated symbols
-- **Boll** — closed green boll with rounded locks and pointed bracts
-- **White Flower** — broad white/pale-pink flower with green bracts
-- **Square** — compact green bud with pointed bracts
+## New report details
+The user can now enter:
+- Farm
+- Paddock name
+- Grower
+- Date
 
-Cracked Boll remains a separate option.
+These details are shown on the dashboard and included on the generated plant map/PDF.
+
+## Branding
+The supplied AGnVET Rural logo is included in the app and printed on the report/map output.
 
 ## Run
 ```bash
