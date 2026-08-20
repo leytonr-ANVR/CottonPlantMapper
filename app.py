@@ -87,10 +87,8 @@ def normalise(df, min_node, max_node):
     return out[keep]
 
 def metrics(df):
-    """Summary metrics. Vegetative nodes are excluded from fruit retention."""
+    """Summary metrics. '-' entries are not fruiting positions and are not counted."""
     total_nodes = len(df)
-
-    # Only reproductive-bearing node types count toward retention.
     retention_df = df[df["Node Type"] != "Vegetative"].copy()
 
     total_positions = 0
@@ -99,13 +97,17 @@ def metrics(df):
 
     for _, row in retention_df.iterrows():
         count = int(row["Position Count"])
-        total_positions += count
-
         for p in range(1, count + 1):
             fruit = row[f"Position {p}"]
+
+            # '-' means no fruiting position exists here.
+            if fruit == "-":
+                continue
+
+            total_positions += 1
             if fruit == "Missing Fruit":
                 missing_positions += 1
-            elif fruit != "-":
+            else:
                 held_positions += 1
 
     retention = (

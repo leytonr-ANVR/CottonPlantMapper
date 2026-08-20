@@ -1,14 +1,10 @@
-# Cotton Plant Mapper v46
+# Cotton Plant Mapper v47
 
-Node types are now shown on both exports.
+Total Position counting corrected.
 
-## Export PNG
-Uses the same coloured node-type badges as the interactive map:
-- R — Reproductive, green
-- V — Vegetative, blue
-- VL — Vegetative Lateral, orange
-
-## Export PDF
-The same R / V / VL badges are displayed beside each node number.
-
-All custom fruit symbols and existing export/report features remain unchanged.
+- `-` is treated as **no position** and is not counted in Total Positions.
+- `-` is excluded from the Retention % denominator.
+- Missing Fruit counts as a position but is not held.
+- Boll, Square, White Flower and Cracked Boll count as held positions.
+- Vegetative (V) nodes remain excluded from retention calculations.
+- The correction applies to dashboard and PDF summary counts.
