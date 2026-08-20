@@ -163,75 +163,142 @@ def draw_symbol(ax, x, y, fruit, s=.13):
     elif fruit == "Missing Fruit": draw_missing(ax,x,y,s)
 
 def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show_ground=True):
+    # Plant-map layout styled to match the supplied reference:
+    # slim upright main stem, alternating fruiting branches, compact node labels,
+    # short branches where trailing positions are unused, and vegetative laterals
+    # sweeping diagonally from the lower plant.
     node_span = max_node - min_node + 1
-    fig_h = 7.1 if node_span <= 24 else 8.0
-    fig, ax = plt.subplots(figsize=(7.2, fig_h))
-    ground = min_node - 1.0
+    fig_h = 7.0 if node_span <= 24 else 7.8
+    fig, ax = plt.subplots(figsize=(7.0, fig_h))
+    ax.set_facecolor('white')
 
-    ax.plot([0,0],[ground,max_node+.8], color="#008f45", lw=4, zorder=2)
+    ground = min_node - 1.05
+    stem_top = max_node + .72
+
+    # Main stem and base.
+    ax.plot([0,0],[ground,stem_top], color='#008b43', lw=4.2,
+            solid_capstyle='round', zorder=2)
     if show_ground:
-        ax.plot([-2.2,2.2],[ground,ground], color="#9b5e16", lw=5, solid_capstyle="round")
-    ax.add_patch(Polygon([(-.18,ground),(0,ground+.28),(.18,ground)], closed=True, facecolor="#008f45", edgecolor="#008f45"))
+        ax.plot([-2.22,2.22],[ground,ground], color='#9c5a13', lw=4.8,
+                solid_capstyle='round', zorder=1)
+    ax.add_patch(Polygon([(-.20,ground),(0,ground+.30),(.20,ground)],
+                         closed=True, facecolor='#008b43', edgecolor='#008b43', zorder=3))
 
-    for node in range(min_node, max_node+1):
-        row = df[df["Node"] == node]
-        if row.empty:
+    # Terminal.
+    ax.plot([0,-.13],[stem_top-.02,stem_top+.23], color='#41a63b', lw=2.3)
+    ax.plot([0,.13],[stem_top-.02,stem_top+.23], color='#41a63b', lw=2.3)
+
+    for node in range(min_node, max_node + 1):
+        row_df = df[df['Node'] == node]
+        if row_df.empty:
             continue
-        row = row.iloc[0]
-        ntype = row["Node Type"]
+        row = row_df.iloc[0]
+        ntype = row['Node Type']
         side = -1 if node % 2 else 1
         y = node
-        count = int(row["Position Count"])
+        count = int(row['Position Count'])
 
-        if ntype == "Vegetative":
-            ex = side*.84
-            ax.plot([0,ex],[y,y+.18], color="#008f45", lw=2.35)
-            ax.add_patch(Ellipse((ex+side*.14,y+.23),.28,.13,angle=20*side,
-                                 facecolor="#62ae45",edgecolor="#39863a",lw=.6))
+        # Node number beside the main stem, matching the reference image.
+        ax.text(
+            -0.08 if side > 0 else 0.08,
+            y + .02,
+            str(node),
+            fontsize=8.6,
+            fontweight='bold',
+            color='#101010',
+            ha='right' if side > 0 else 'left',
+            va='center',
+            zorder=20,
+        )
+
+        # Reproductive node junction is a small green/open position-style circle.
+        if ntype == 'Reproductive':
+            ax.add_patch(Circle((0,y), .048, facecolor='white', edgecolor='#008b43', lw=1.25, zorder=8))
+
+        if ntype == 'Vegetative':
+            # Short vegetative branch with a subtle leaf, kept compact like the lower nodes.
+            branch_len = .72
+            ex = side * branch_len
+            ax.plot([0, side*.34, ex], [y, y+.02, y+.18], color='#008b43', lw=2.25,
+                    solid_capstyle='round', zorder=3)
+            ax.add_patch(Ellipse((ex + side*.12, y+.20), .25, .12,
+                                 angle=18*side, facecolor='#5dab42', edgecolor='#3d8937', lw=.55, zorder=4))
+            continue
+
+        # Last active fruit position controls the branch length.
+        effective = 0
+        for p in range(1, count + 1):
+            if row[f'Position {p}'] != '-':
+                effective = p
+
+        draw_count = max(effective, 1 if count > 0 else 0)
+
+        if ntype == 'Vegetative Lateral':
+            # Longer diagonal lateral, carrying fruit directly on the stem.
+            branch_len = 1.15 + max(0, draw_count - 1) * .42
+            ex = side * branch_len
+            ey = y - .34 - max(0, draw_count - 2) * .04
+            ax.plot([0, side*.48, ex], [y, y-.12, ey], color='#008b43', lw=2.7,
+                    solid_capstyle='round', zorder=3)
+
             coords = []
+            if effective > 0:
+                for p in range(1, effective + 1):
+                    frac = p / (effective + 1)
+                    x = side * (.28 + (branch_len - .28) * frac)
+                    py = y - .06 - (.26 * frac)
+                    coords.append((p, x, py))
+
         else:
-            effective = 0
-            for p in range(1,count+1):
-                if row[f"Position {p}"] != "-":
-                    effective = p
-            draw_count = max(effective, 1 if count else 0)
-            branch_len = .62 + max(0, draw_count-1)*.39
+            # Fruiting branch: short horizontal section then a slight angled rise,
+            # closely matching the supplied map style.
+            branch_len = .68 + max(0, draw_count - 1) * .43
+            first_x = side * min(.48, branch_len)
+            end_x = side * branch_len
+            end_y = y + (.16 if draw_count <= 2 else .22)
 
-            if ntype == "Vegetative Lateral":
-                ax.plot([0,side*.43,side*branch_len],[y,y-.10,y-.34],color="#008f45",lw=2.45)
-                coords = [
-                    (p, side*(.26+(branch_len-.26)*(p/(effective+1))), y-.05-.24*(p/(effective+1)))
-                    for p in range(1,effective+1)
-                ]
+            if draw_count <= 1:
+                ax.plot([0,end_x],[y,y+.07], color='#008b43', lw=2.35,
+                        solid_capstyle='round', zorder=3)
             else:
-                ax.plot([0,side*.43,side*branch_len],[y,y+.04,y+.21],color="#008f45",lw=2.45)
-                coords = [
-                    (p, side*(.28+(branch_len-.28)*(p/max(effective,1))), y+.03+.17*(p/max(effective,1)))
-                    for p in range(1,effective+1)
-                ]
+                ax.plot([0,first_x,end_x],[y,y+.01,end_y], color='#008b43', lw=2.35,
+                        solid_capstyle='round', zorder=3)
 
-            for p,x,py in coords:
-                fruit = row[f"Position {p}"]
-                if fruit == "-" and show_positions:
-                    draw_empty(ax,x,py,.10)
-                elif fruit != "-":
-                    draw_symbol(ax,x,py,fruit,.13)
-                if show_labels:
-                    ax.text(x+(0.07 if side>0 else -0.07),py+.095,f"{node}-{p}",fontsize=6.4,
-                            ha="left" if side>0 else "right",color="#334")
+            coords = []
+            if effective > 0:
+                for p in range(1, effective + 1):
+                    if effective == 1:
+                        frac = 1.0
+                    else:
+                        frac = (p - 1) / (effective - 1)
+                    x = side * (.43 + (branch_len - .43) * frac)
+                    py = y + .03 + (end_y - y - .03) * frac
+                    coords.append((p, x, py))
 
-        if show_labels:
-            mark = {"Vegetative":"V","Reproductive":"R","Vegetative Lateral":"VL"}[ntype]
-            ax.text(.09 if side<0 else -.09,y,f"{node} {mark}",fontsize=7.6,fontweight="bold",
-                    ha="left" if side<0 else "right",va="center",color="#111")
+        # Fruit/position marks. Position circles are drawn behind fruit, like the reference.
+        for p, x, py in coords:
+            fruit = row[f'Position {p}']
+            if show_positions:
+                draw_empty(ax, x, py, .105)
+            if fruit != '-':
+                draw_symbol(ax, x, py, fruit, .145)
+            if show_labels:
+                ax.text(
+                    x + (.07 if side > 0 else -.07),
+                    py + .10,
+                    f'{node}-{p}',
+                    fontsize=6.0,
+                    color='#56616b',
+                    ha='left' if side > 0 else 'right',
+                    va='bottom',
+                    zorder=15,
+                )
 
-    ax.text(0,max_node+.95,"Terminal",ha="center",fontsize=11,fontweight="bold")
-    ax.plot([0,-.15],[max_node+.78,max_node+1.02],color="#4da83b",lw=2.3)
-    ax.plot([0,.15],[max_node+.78,max_node+1.02],color="#4da83b",lw=2.3)
-    ax.set_xlim(-2.35,2.35)
-    ax.set_ylim(ground-.12,max_node+1.28)
-    ax.axis("off")
-    fig.tight_layout(pad=.2)
+    # Keep the plant large and centred, with less empty space than previous versions.
+    ax.set_xlim(-2.10, 2.10)
+    ax.set_ylim(ground-.10, stem_top+.42)
+    ax.axis('off')
+    fig.tight_layout(pad=.05)
     return fig
 
 def legend_figure():
@@ -481,7 +548,7 @@ with centre:
     fig = make_map(st.session_state.plant_matrix, min_node, max_node, show_labels, show_positions, show_ground)
     png = fig_bytes(fig, "png")
     pdf = fig_bytes(fig, "pdf")
-    interactive_map(png, height=570 if compact else 640)
+    interactive_map(png, height=590 if compact else 660)
     plt.close(fig)
 
     with pdf_slot.container():

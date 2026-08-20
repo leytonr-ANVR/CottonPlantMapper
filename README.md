@@ -1,17 +1,14 @@
-# Cotton Plant Mapper v24
+# Cotton Plant Mapper v25
 
-GUI update to closely match the supplied AGnVET Rural mock-up.
+Plant display updated to more closely match the supplied reference image.
 
-New:
-- compact branded header with Export PDF, Export PNG, Clear Map and Save
-- horizontal Report Details row
-- left Data Entry / Summary / Settings panel
-- central map with working Zoom In, Zoom Out and Fit buttons
-- mouse-wheel zoom over the map
-- right Legend and Node Types panels
-- bottom metric cards
-- editable node Type and Pos 1 / Pos 2 / Pos 3
-- Add Node / Remove Last Node / Auto Fill controls
-
-Run:
-streamlit run app.py
+Changes:
+- larger, more centred plant in the map panel
+- slimmer vertical main stem
+- alternating fruiting branches with short horizontal inner sections and angled outer sections
+- compact node numbers beside the stem
+- fruit/empty position circles placed directly on branches
+- branch length follows the last active position
+- vegetative laterals sweep diagonally from the lower plant
+- Zoom Out, Zoom In and Fit controls retained
+- mouse-wheel zoom retained
