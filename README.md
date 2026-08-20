@@ -1,18 +1,14 @@
-# Cotton Plant Mapper v9
+# Cotton Plant Mapper v11
 
-Adds AGnVET Rural branding and report details.
+Report details have been moved from the sidebar into the **Data Entry** tab.
 
-## New report details
-The user can now enter:
+The Data Entry section now starts with:
 - Farm
-- Paddock name
+- Paddock Name
 - Grower
 - Date
 
-These details are shown on the dashboard and included on the generated plant map/PDF.
-
-## Branding
-The supplied AGnVET Rural logo is included in the app and printed on the report/map output.
+These details continue to appear on the dashboard and generated PDF/report.
 
 ## Run
 ```bash

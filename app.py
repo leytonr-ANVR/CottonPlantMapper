@@ -17,8 +17,14 @@ def blank_matrix(min_node=5, max_node=22):
     n = max_node - min_node + 1
     data = {
         "Node": list(range(min_node, max_node + 1)),
-        "Node Type": ["Reproductive"] * n,
-        "Position Count": [3] * n,
+        "Node Type": [
+            "Vegetative" if node <= 7 else "Reproductive"
+            for node in range(min_node, max_node + 1)
+        ],
+        "Position Count": [
+            0 if node <= 7 else 3
+            for node in range(min_node, max_node + 1)
+        ],
     }
     for pos in range(1, MAX_POSITIONS + 1):
         data[f"Position {pos}"] = ["-"] * n
@@ -526,7 +532,7 @@ st.caption(
 
 with st.sidebar:
     st.header("Plant setup")
-    min_node = st.number_input("Lowest node", min_value=1, max_value=50, value=5, step=1)
+    min_node = st.number_input("Lowest node", min_value=1, max_value=50, value=1, step=1)
     max_node = st.number_input(
         "Highest node",
         min_value=int(min_node),
@@ -535,14 +541,6 @@ with st.sidebar:
         step=1
     )
     plant_name = st.text_input("Plant / sample name", value="Cotton Plant Map")
-
-    st.divider()
-    st.subheader("Report details")
-    farm = st.text_input("Farm", value="")
-    paddock = st.text_input("Paddock name", value="")
-    grower = st.text_input("Grower", value="")
-    report_date = st.date_input("Date")
-
     show_labels = st.checkbox("Show node-position labels", value=True)
 
 if "plant_matrix" not in st.session_state:
@@ -555,6 +553,16 @@ st.session_state.plant_matrix = normalize_matrix(
 tab1, tab2, tab3 = st.tabs(["Data Entry", "Plant Map", "Summary"])
 
 with tab1:
+    st.subheader("Report Details")
+    rd1, rd2 = st.columns(2)
+    with rd1:
+        farm = st.text_input("Farm", value="", key="report_farm")
+        grower = st.text_input("Grower", value="", key="report_grower")
+    with rd2:
+        paddock = st.text_input("Paddock Name", value="", key="report_paddock")
+        report_date = st.date_input("Date", key="report_date")
+
+    st.divider()
     st.subheader("Node × Position Entry")
     st.write(
         "Each row is one node. Set it as **Vegetative** or **Reproductive**, then choose how many fruiting positions that node has. "
