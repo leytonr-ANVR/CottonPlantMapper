@@ -1,15 +1,15 @@
-# Cotton Plant Mapper v3
+# Cotton Plant Mapper v5
 
-This version updates the generated plant diagram to look more like a real cotton plant.
+Adds **Node Type** classification.
 
-## Updated plant map
-- Green main stem and fruiting branches
-- Black node markers
-- Cotton-style green square/bud symbol
-- White flower symbol
-- Open cotton boll symbol
-- Fruiting scar symbol for missing fruit
-- Node-position labels can be turned on/off
+Each node can now be set as:
+- Vegetative
+- Reproductive
+
+Reproductive nodes show fruiting branches and Positions 1, 2 and 3.
+Vegetative nodes show a shorter vegetative branch and leaf without fruiting positions.
+
+The plant map labels nodes with **V** or **R**, and the summary reports counts of each node type.
 
 ## Run
 ```bash

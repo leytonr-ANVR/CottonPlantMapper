@@ -8,12 +8,13 @@ import numpy as np
 
 st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌿", layout="wide")
 
-FRUIT_TYPES = ["-", "Boll", "Square", "White Flower", "Missing Fruit"]
+FRUIT_TYPES = ["-", "Boll", "Cracked Boll", "Square", "White Flower", "Missing Fruit"]
 POSITIONS = [1, 2, 3]
 
 def blank_matrix(min_node=5, max_node=22):
     return pd.DataFrame({
         "Node": list(range(min_node, max_node + 1)),
+        "Node Type": ["Reproductive"] * (max_node - min_node + 1),
         "Position 1": ["-"] * (max_node - min_node + 1),
         "Position 2": ["-"] * (max_node - min_node + 1),
         "Position 3": ["-"] * (max_node - min_node + 1),
@@ -30,6 +31,13 @@ def normalize_matrix(df, min_node, max_node):
     df = df.dropna(subset=["Node"])
     df["Node"] = df["Node"].astype(int)
 
+    if "Node Type" not in df.columns:
+        df["Node Type"] = "Reproductive"
+    df["Node Type"] = df["Node Type"].where(
+        df["Node Type"].isin(["Vegetative", "Reproductive"]),
+        "Reproductive"
+    )
+
     for col in ["Position 1", "Position 2", "Position 3"]:
         if col not in df.columns:
             df[col] = "-"
@@ -39,14 +47,14 @@ def normalize_matrix(df, min_node, max_node):
         df["Notes"] = ""
 
     out = base.merge(
-        df[["Node", "Position 1", "Position 2", "Position 3", "Notes"]],
+        df[["Node", "Node Type", "Position 1", "Position 2", "Position 3", "Notes"]],
         on="Node", how="left", suffixes=("", "_saved")
     )
-    for col in ["Position 1", "Position 2", "Position 3", "Notes"]:
+    for col in ["Node Type", "Position 1", "Position 2", "Position 3", "Notes"]:
         saved = f"{col}_saved"
         if saved in out.columns:
             out[col] = out[saved].fillna(out[col])
-    return out[["Node", "Position 1", "Position 2", "Position 3", "Notes"]]
+    return out[["Node", "Node Type", "Position 1", "Position 2", "Position 3", "Notes"]]
 
 def matrix_to_long(df):
     rows = []
@@ -55,6 +63,7 @@ def matrix_to_long(df):
         for pos in POSITIONS:
             rows.append({
                 "Node": node,
+                "Node Type": row.get("Node Type", "Reproductive"),
                 "Position": pos,
                 "Fruit": row[f"Position {pos}"]
             })
@@ -130,6 +139,52 @@ def draw_boll(ax, x, y, scale=0.15):
                              facecolor="#8B4D22", edgecolor="#653515",
                              lw=0.7, zorder=8))
 
+
+def draw_cracked_boll(ax, x, y, scale=0.15):
+    # Partially opened / cracked boll: green-brown boll with white cotton showing.
+    ax.plot([x, x], [y-scale*1.25, y-scale*0.62],
+            color="#6A3D1F", lw=1.5, zorder=6)
+
+    # Outer boll segments
+    for dx in [-0.34, 0.34]:
+        ax.add_patch(Ellipse(
+            (x + dx*scale, y),
+            scale*0.78, scale*1.10,
+            angle=-18 if dx < 0 else 18,
+            facecolor="#8FAF45",
+            edgecolor="#58752D",
+            lw=0.9,
+            zorder=8
+        ))
+
+    # Cotton visible through the cracked centre
+    for dx, dy, s in [(-0.12, 0.08, 0.48), (0.12, 0.08, 0.48), (0, -0.12, 0.44)]:
+        ax.add_patch(Circle(
+            (x + dx*scale, y + dy*scale),
+            scale*s,
+            facecolor="white",
+            edgecolor="#D7D7D7",
+            lw=0.7,
+            zorder=9
+        ))
+
+    # Brown split line
+    ax.plot([x, x], [y-scale*0.50, y+scale*0.52],
+            color="#70401F", lw=1.2, zorder=10)
+
+    # Bracts
+    for ang in [210, 270, 330]:
+        a = np.deg2rad(ang)
+        tip = (x + np.cos(a)*scale*1.20,
+               y + np.sin(a)*scale*1.02)
+        l = (x + np.cos(a+0.25)*scale*0.38,
+             y + np.sin(a+0.25)*scale*0.30)
+        r = (x + np.cos(a-0.25)*scale*0.38,
+             y + np.sin(a-0.25)*scale*0.30)
+        ax.add_patch(Polygon([l, tip, r], closed=True,
+                             facecolor="#688D38", edgecolor="#466127",
+                             lw=0.7, zorder=7))
+
 def draw_missing(ax, x, y, scale=0.13):
     # Small fruiting scar/stub rather than a generic X.
     ax.plot([x-scale*0.55, x+scale*0.35],
@@ -142,6 +197,8 @@ def draw_missing(ax, x, y, scale=0.13):
 def draw_symbol(ax, x, y, fruit, scale=0.13):
     if fruit == "Boll":
         draw_boll(ax, x, y, scale*1.05)
+    elif fruit == "Cracked Boll":
+        draw_cracked_boll(ax, x, y, scale*1.05)
     elif fruit == "Square":
         draw_square(ax, x, y, scale)
     elif fruit == "White Flower":
@@ -187,51 +244,69 @@ def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
     for node in range(min_node, max_node + 1):
         side = -1 if node % 2 else 1
         y = node
-        branch_len = 1.45 + (0.42 if node < min_node + n_nodes*0.45 else 0.10)
 
-        # Slightly upward branch path with bends.
-        x0 = 0.0
-        x1 = side * 0.52
-        x2 = side * 1.05
-        x3 = side * branch_len
-        y1 = y + 0.03
-        y2 = y + 0.20
-        y3 = y + 0.34
-        ax.plot([x0, x1, x2, x3], [y, y1, y2, y3],
-                color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+        node_row = matrix_df[matrix_df["Node"] == node]
+        node_type = node_row.iloc[0]["Node Type"] if len(node_row) else "Reproductive"
 
-        # A small vegetative branch / leaf hint on opposite side.
-        if node % 3 == 0:
-            ox = -side * 0.55
-            ax.plot([0, ox*0.55, ox], [y+0.03, y+0.18, y+0.34],
-                    color="#5EAB3D", lw=2.4, solid_capstyle="round", zorder=2)
+        if node_type == "Vegetative":
+            # Vegetative node: show a shorter vegetative branch without fruiting positions.
+            branch_len = 0.95
+            x1 = side * 0.42
+            x2 = side * branch_len
+            ax.plot([0, x1, x2], [y, y + 0.10, y + 0.28],
+                    color="#5EAB3D", lw=3.0, solid_capstyle="round", zorder=3)
+
+            # simple leaf shape
+            leaf_x = x2 + side * 0.18
+            leaf_y = y + 0.34
+            ax.add_patch(Ellipse(
+                (leaf_x, leaf_y), 0.34, 0.16,
+                angle=25 if side > 0 else -25,
+                facecolor="#6EAF42", edgecolor="#4E8A31",
+                lw=0.8, zorder=4
+            ))
+            coords = []
+        else:
+            # Reproductive node: draw fruiting branch with three positions.
+            branch_len = 1.45 + (0.42 if node < min_node + n_nodes*0.45 else 0.10)
+            x0 = 0.0
+            x1 = side * 0.52
+            x2 = side * 1.05
+            x3 = side * branch_len
+            y1 = y + 0.03
+            y2 = y + 0.20
+            y3 = y + 0.34
+            ax.plot([x0, x1, x2, x3], [y, y1, y2, y3],
+                    color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+
+            coords = [
+                (side * 0.48, y + 0.04),
+                (side * 0.98, y + 0.18),
+                (side * (branch_len - 0.05), y + 0.33),
+            ]
 
         # node dots like the supplied reference
-        ax.add_patch(Circle((0, y), 0.095, facecolor="black",
+        node_colour = "#2E6E35" if node_type == "Vegetative" else "black"
+        ax.add_patch(Circle((0, y), 0.095, facecolor=node_colour,
                             edgecolor="black", zorder=10))
 
-        # positions placed along the branch
-        coords = [
-            (side * 0.48, y + 0.04),
-            (side * 0.98, y + 0.18),
-            (side * (branch_len - 0.05), y + 0.33),
-        ]
+        if node_type == "Reproductive":
+            for pos, (x, py) in zip(POSITIONS, coords):
+                row = df[(df["Node"] == node) & (df["Position"] == pos)]
+                fruit = row.iloc[0]["Fruit"] if len(row) else "-"
+                if fruit != "-":
+                    draw_symbol(ax, x, py, fruit, scale=0.14)
 
-        for pos, (x, py) in zip(POSITIONS, coords):
-            row = df[(df["Node"] == node) & (df["Position"] == pos)]
-            fruit = row.iloc[0]["Fruit"] if len(row) else "-"
-            if fruit != "-":
-                draw_symbol(ax, x, py, fruit, scale=0.14)
-
-            if show_labels:
-                off = 0.10 if side > 0 else -0.10
-                ax.text(x + off, py + 0.15, f"{node}-{pos}",
-                        fontsize=7, color="#333333",
-                        ha="left" if side > 0 else "right",
-                        va="bottom", zorder=11)
+                if show_labels:
+                    off = 0.10 if side > 0 else -0.10
+                    ax.text(x + off, py + 0.15, f"{node}-{pos}",
+                            fontsize=7, color="#333333",
+                            ha="left" if side > 0 else "right",
+                            va="bottom", zorder=11)
 
         # Node number shown beside the stem
-        ax.text(-0.18 if side > 0 else 0.18, y, str(node),
+        type_mark = "V" if node_type == "Vegetative" else "R"
+        ax.text(-0.18 if side > 0 else 0.18, y, f"{node} {type_mark}",
                 fontsize=8, fontweight="bold", color="#1F1F1F",
                 ha="right" if side > 0 else "left", va="center", zorder=11)
 
@@ -244,7 +319,7 @@ def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
     lx = -2.25
     ly = ground_y + 0.32
     spacing = 0.72
-    legend_items = ["Square", "White Flower", "Boll", "Missing Fruit"]
+    legend_items = ["Square", "White Flower", "Cracked Boll", "Boll", "Missing Fruit"]
     for i, fruit in enumerate(legend_items):
         yy = ly + i * spacing
         draw_symbol(ax, lx, yy, fruit, scale=0.13)
@@ -296,8 +371,8 @@ tab1, tab2, tab3 = st.tabs(["Data Entry", "Plant Map", "Summary"])
 with tab1:
     st.subheader("Node × Position Entry")
     st.write(
-        "Each row is one node. Record Positions **1, 2 and 3** across the row. "
-        "Position 1 is closest to the main stem."
+        "Each row is one node. Set the node as **Vegetative** or **Reproductive**. "
+        "Reproductive nodes use Positions **1, 2 and 3** across the row, with Position 1 closest to the main stem."
     )
 
     edited = st.data_editor(
@@ -308,6 +383,12 @@ with tab1:
         column_config={
             "Node": st.column_config.NumberColumn(
                 "Node", disabled=True, width="small"
+            ),
+            "Node Type": st.column_config.SelectboxColumn(
+                "Node Type",
+                options=["Vegetative", "Reproductive"],
+                required=True,
+                width="medium"
             ),
             "Position 1": st.column_config.SelectboxColumn(
                 "1", options=FRUIT_TYPES, required=True, width="small"
@@ -385,16 +466,25 @@ with tab3:
     long_df = matrix_to_long(st.session_state.plant_matrix)
     active = long_df[long_df["Fruit"] != "-"].copy()
     counts = active["Fruit"].value_counts().reindex(
-        ["Boll", "Square", "White Flower", "Missing Fruit"], fill_value=0
+        ["Boll", "Cracked Boll", "Square", "White Flower", "Missing Fruit"], fill_value=0
     )
 
-    cols = st.columns(4)
+    cols = st.columns(5)
     for col, label in zip(cols, counts.index):
         col.metric(label, int(counts[label]))
 
-    occupied = int(long_df["Fruit"].isin(["Boll", "Square", "White Flower"]).sum())
+    occupied = int(long_df["Fruit"].isin(["Boll", "Cracked Boll", "Square", "White Flower"]).sum())
     missing = int((long_df["Fruit"] == "Missing Fruit").sum())
     recorded = occupied + missing
+
+
+    st.markdown("#### Node type summary")
+    node_counts = st.session_state.plant_matrix["Node Type"].value_counts().reindex(
+        ["Vegetative", "Reproductive"], fill_value=0
+    )
+    nc1, nc2 = st.columns(2)
+    nc1.metric("Vegetative Nodes", int(node_counts["Vegetative"]))
+    nc2.metric("Reproductive Nodes", int(node_counts["Reproductive"]))
 
     summary_df = pd.DataFrame({
         "Metric": [
