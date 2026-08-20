@@ -25,9 +25,9 @@ FRUIT_DISPLAY = {
     "Missing Fruit": "◌  Missing Fruit",
 }
 TYPE_DISPLAY = {
-    "Vegetative": "V  Vegetative",
-    "Reproductive": "R  Reproductive",
-    "Vegetative Lateral": "VL  Vegetative Lateral",
+    "Vegetative": "🔵 V",
+    "Reproductive": "🟢 R",
+    "Vegetative Lateral": "🟠 VL",
 }
 
 def blank_matrix(min_node=1, max_node=22):
@@ -311,8 +311,19 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
     report_metrics = metrics(df)
 
     # Compact report title and details.
+    # AGnVET Rural logo in the PDF header.
+    pdf_logo = Path(__file__).with_name("agnvet_rural_logo.png")
+    if pdf_logo.exists():
+        try:
+            logo_img = plt.imread(str(pdf_logo))
+            logo_ax = fig.add_axes([0.055, 0.925, 0.205, 0.062])
+            logo_ax.imshow(logo_img)
+            logo_ax.axis("off")
+        except Exception:
+            pass
+
     fig.text(
-        0.06, 0.973, "Cotton Plant Map",
+        0.285, 0.973, "Cotton Plant Map",
         ha="left", va="top",
         fontsize=18, fontweight="bold", color="#062d57"
     )
@@ -329,13 +340,13 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
         detail_right.append(f"Date: {report_date}")
 
     fig.text(
-        0.06, 0.946,
+        0.285, 0.946,
         "   |   ".join(detail_left) if detail_left else "Farm: -   |   Paddock: -",
         ha="left", va="top",
         fontsize=9.5, color="#3f4f5f"
     )
     fig.text(
-        0.55, 0.946,
+        0.285, 0.928,
         "   |   ".join(detail_right) if detail_right else "Grower: -   |   Date: -",
         ha="left", va="top",
         fontsize=9.5, color="#3f4f5f"
@@ -354,7 +365,7 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
     )
 
     fig.text(
-        0.50, 0.916, summary_text,
+        0.50, 0.895, summary_text,
         ha="center", va="top",
         fontsize=9.4, fontweight="bold", color="#162c45",
         bbox=dict(
@@ -457,7 +468,7 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
     ax.set_xlim(-2.55, 2.55)
     ax.set_ylim(ground-.14, stem_top+.38)
     ax.axis('off')
-    fig.subplots_adjust(left=.035, right=.965, top=.885, bottom=.025)
+    fig.subplots_adjust(left=.035, right=.965, top=.865, bottom=.025)
     return fig
 
 def legend_figure():
@@ -500,7 +511,12 @@ def interactive_map(png_bytes, height=610):
       button.fit{{width:42px;}}
       .viewport{{height:{height-48}px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:white;position:relative;}}
       #mapimg{{max-width:96%;max-height:96%;object-fit:contain;transform-origin:center center;transition:transform .12s ease;user-select:none;}}
-    </style>
+    
+/* Compact Node Type dropdown: R / V / VL badge-style display */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div{
+    font-weight:700;
+}
+</style>
     </head>
     <body>
       <div class="wrap">
@@ -623,7 +639,7 @@ with left:
         visible_positions = max(1, min(MAX_POSITIONS, visible_positions))
 
         # Dynamic header: Node, Type, then however many position columns are enabled.
-        header_weights = [.38, 1.08] + [1.08] * visible_positions
+        header_weights = [.38, .72] + [1.08] * visible_positions
         header = st.columns(header_weights, gap="small")
         header[0].markdown("<div style='text-align:center;font-size:11px;font-weight:700;color:#17395f'>Node</div>", unsafe_allow_html=True)
         header[1].markdown("<div style='text-align:center;font-size:11px;font-weight:700;color:#17395f'>Type</div>", unsafe_allow_html=True)

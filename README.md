@@ -1,15 +1,9 @@
-# Cotton Plant Mapper v28
+# Cotton Plant Mapper v30
 
-PDF export now includes a compact report header with:
+Node Data Entry Type dropdown updated to use compact node-type symbols based on the supplied reference:
 
-- Farm
-- Paddock
-- Grower
-- Date
-- Total Nodes
-- Total Positions
-- Held Positions
-- Missing Fruit
-- Retention %
+- 🟢 R — Reproductive
+- 🔵 V — Vegetative
+- 🟠 VL — Vegetative Lateral
 
-The plant diagram remains the main feature of the portrait PDF, with the report information kept in a clean, compact area at the top.
+The dropdown remains editable for every individual node.
