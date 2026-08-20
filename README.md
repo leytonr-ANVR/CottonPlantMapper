@@ -1,13 +1,12 @@
-# Cotton Plant Mapper v43
+# Cotton Plant Mapper v45
 
-Interactive plant branch geometry updated to better match the supplied reference.
+Vegetative Lateral fruiting geometry updated.
 
-Changes:
-- reproductive branch angle now changes from node to node
-- branches alternate between downward sweep, near-level and upward angles
-- multi-position branches have natural bends rather than repeating one straight shape
-- lower branches are slightly longer and more sweeping
-- fruit symbols follow the angle of each branch
-- node types, custom fruit symbols, Zoom and Fit remain unchanged
+For **Vegetative Lateral (VL)** nodes only:
+- the long vegetative lateral remains the main branch
+- each fruiting position now grows from a short secondary/subtending fruiting branch off that main lateral
+- a small junction circle marks where each secondary branch leaves the vegetative lateral
+- Boll, Square, White Flower, Cracked Boll and Missing Fruit appear at the tip of the short secondary branch
+- Reproductive and Vegetative node geometry is unchanged
 
-This change applies to the interactive map.
+The same VL geometry is used in the interactive map, PNG export and PDF export.

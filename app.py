@@ -87,25 +87,41 @@ def normalise(df, min_node, max_node):
     return out[keep]
 
 def metrics(df):
-    held = 0
-    missing = 0
-    total_positions = int(df["Position Count"].sum())
-    for _, row in df.iterrows():
-        for p in range(1, int(row["Position Count"]) + 1):
+    """Summary metrics. Vegetative nodes are excluded from fruit retention."""
+    total_nodes = len(df)
+
+    # Only reproductive-bearing node types count toward retention.
+    retention_df = df[df["Node Type"] != "Vegetative"].copy()
+
+    total_positions = 0
+    held_positions = 0
+    missing_positions = 0
+
+    for _, row in retention_df.iterrows():
+        count = int(row["Position Count"])
+        total_positions += count
+
+        for p in range(1, count + 1):
             fruit = row[f"Position {p}"]
-            if fruit in ["Boll", "White Flower", "Square", "Cracked Boll"]:
-                held += 1
-            elif fruit == "Missing Fruit":
-                missing += 1
+            if fruit == "Missing Fruit":
+                missing_positions += 1
+            elif fruit != "-":
+                held_positions += 1
+
+    retention = (
+        (held_positions / total_positions) * 100
+        if total_positions > 0 else None
+    )
+
     return {
-        "total_nodes": int(len(df)),
+        "total_nodes": total_nodes,
         "total_positions": total_positions,
-        "held_positions": held,
-        "missing_positions": missing,
-        "retention": (held / total_positions * 100) if total_positions else None,
+        "held_positions": held_positions,
+        "missing_positions": missing_positions,
+        "retention": retention,
     }
 
-# ---------- Cotton symbols ----------
+
 def draw_square(ax, x, y, s=.12):
     ax.add_patch(Ellipse((x,y), s*.72, s*.84, facecolor="#5dad37", edgecolor="#347b31", lw=.8, zorder=9))
     for ang in [0,45,90,135,180,225,270,315]:
@@ -336,20 +352,52 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
         draw_count = max(effective, 1 if count > 0 else 0)
 
         if ntype == 'Vegetative Lateral':
-            # Longer diagonal lateral, carrying fruit directly on the stem.
-            branch_len = 1.15 + max(0, draw_count - 1) * .42
+            # Vegetative lateral = the long primary branch. Fruiting positions
+            # sit on short secondary/subtending fruiting branches off this main
+            # lateral rather than directly on the vegetative stem.
+            branch_len = 1.18 + max(0, draw_count - 1) * .45
             ex = side * branch_len
-            ey = y - .34 - max(0, draw_count - 2) * .04
-            ax.plot([0, side*.48, ex], [y, y-.12, ey], color='#008b43', lw=2.7,
-                    solid_capstyle='round', zorder=3)
+            ey = y - .36 - max(0, draw_count - 2) * .045
+            bend_x = side * .50
+            bend_y = y - .13
+
+            ax.plot(
+                [0, bend_x, ex],
+                [y, bend_y, ey],
+                color='#008b43', lw=2.75,
+                solid_capstyle='round', solid_joinstyle='round', zorder=3
+            )
 
             coords = []
             if effective > 0:
                 for p in range(1, effective + 1):
                     frac = p / (effective + 1)
-                    x = side * (.28 + (branch_len - .28) * frac)
-                    py = y - .06 - (.26 * frac)
-                    coords.append((p, x, py))
+
+                    # Anchor the secondary branch along the long vegetative lateral.
+                    anchor_x = side * (.34 + (branch_len - .42) * frac)
+                    anchor_y = y - .07 - (.25 * frac)
+
+                    # Short subtending fruiting branch grows away from the main
+                    # lateral. Alternate the rise slightly to keep positions clear.
+                    sub_len = .27 + .025 * ((p - 1) % 2)
+                    fruit_x = anchor_x + side * sub_len
+                    fruit_y = anchor_y + (.24 if p % 2 else .18)
+
+                    ax.plot(
+                        [anchor_x, fruit_x],
+                        [anchor_y, fruit_y],
+                        color='#008b43', lw=2.05,
+                        solid_capstyle='round', zorder=4
+                    )
+
+                    # Small junction marker where the fruiting branch leaves the
+                    # vegetative lateral, matching the cotton-branch schematic.
+                    ax.add_patch(Circle(
+                        (anchor_x, anchor_y), .040,
+                        facecolor='white', edgecolor='#008b43', lw=1.15, zorder=6
+                    ))
+
+                    coords.append((p, fruit_x, fruit_y))
 
         else:
             # Fruiting branches change angle/shape at each node.
@@ -573,18 +621,37 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
         draw_count = max(effective, 1 if count else 0)
 
         if ntype == 'Vegetative Lateral':
-            branch_len = 1.18 + max(0, draw_count - 1) * .44
+            branch_len = 1.20 + max(0, draw_count - 1) * .46
             end_x = side * branch_len
-            end_y = y - .34 - max(0, draw_count - 2) * .04
-            ax.plot([0, side*.50, end_x], [y, y-.12, end_y],
-                    color='#008b43', lw=2.9, solid_capstyle='round', zorder=3)
+            end_y = y - .36 - max(0, draw_count - 2) * .045
+            bend_x = side * .51
+            bend_y = y - .13
+            ax.plot(
+                [0, bend_x, end_x], [y, bend_y, end_y],
+                color='#008b43', lw=2.9,
+                solid_capstyle='round', solid_joinstyle='round', zorder=3
+            )
+
             coords = []
             if effective > 0:
                 for p in range(1, effective + 1):
                     frac = p / (effective + 1)
-                    x = side * (.30 + (branch_len - .30) * frac)
-                    py = y - .06 - .26 * frac
-                    coords.append((p, x, py))
+                    anchor_x = side * (.35 + (branch_len - .43) * frac)
+                    anchor_y = y - .07 - .25 * frac
+                    sub_len = .28 + .025 * ((p - 1) % 2)
+                    fruit_x = anchor_x + side * sub_len
+                    fruit_y = anchor_y + (.24 if p % 2 else .18)
+
+                    ax.plot(
+                        [anchor_x, fruit_x], [anchor_y, fruit_y],
+                        color='#008b43', lw=2.15,
+                        solid_capstyle='round', zorder=4
+                    )
+                    ax.add_patch(Circle(
+                        (anchor_x, anchor_y), .040,
+                        facecolor='white', edgecolor='#008b43', lw=1.15, zorder=6
+                    ))
+                    coords.append((p, fruit_x, fruit_y))
         else:
             # Reproductive branch: almost horizontal with a gentle outward rise.
             branch_len = .80 + max(0, draw_count - 1) * .52
