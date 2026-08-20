@@ -50,7 +50,7 @@ def normalize_matrix(df, min_node, max_node):
     if "Node Type" not in df.columns:
         df["Node Type"] = "Reproductive"
     df["Node Type"] = df["Node Type"].where(
-        df["Node Type"].isin(["Vegetative", "Reproductive"]),
+        df["Node Type"].isin(["Vegetative", "Vegetative Lateral", "Reproductive"]),
         "Reproductive"
     )
 
@@ -78,7 +78,8 @@ def normalize_matrix(df, min_node, max_node):
         if saved in out.columns:
             out[col] = out[saved].fillna(out[col])
 
-    # Vegetative nodes have no fruiting positions.
+    # Standard vegetative nodes have no fruiting positions.
+    # Vegetative Lateral nodes may carry fruit along the lateral branch.
     out.loc[out["Node Type"] == "Vegetative", "Position Count"] = 0
 
     # Clear values beyond the selected position count so summaries stay accurate.
@@ -363,14 +364,13 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
         node_type = node_row.iloc[0]["Node Type"] if len(node_row) else "Reproductive"
 
         if node_type == "Vegetative":
-            # Vegetative node: show a shorter vegetative branch without fruiting positions.
+            # Standard vegetative node: short branch and leaf, no fruiting positions.
             branch_len = 0.95
             x1 = side * 0.42
             x2 = side * branch_len
             ax.plot([0, x1, x2], [y, y + 0.10, y + 0.28],
                     color="#5EAB3D", lw=3.0, solid_capstyle="round", zorder=3)
 
-            # simple leaf shape
             leaf_x = x2 + side * 0.18
             leaf_y = y + 0.34
             ax.add_patch(Ellipse(
@@ -380,22 +380,61 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
                 lw=0.8, zorder=4
             ))
             coords = []
-        else:
-            # Reproductive node: branch length is calculated from positions in use.
-            branch_len = 1.45
+
+        elif node_type == "Vegetative Lateral":
+            # Vegetative lateral: a longer diagonal branch that can carry fruit
+            # directly along the branch stem, similar to the supplied example.
             position_count = int(node_row.iloc[0]["Position Count"]) if len(node_row) else 3
             position_count = max(0, min(MAX_POSITIONS, position_count))
 
-            # Diagram branch length follows the last position that is actually in use.
-            # A trailing "-" means that fruiting position is not present, so the branch
-            # stops before it instead of drawing the full selected Position Count.
             effective_position_count = 0
             if len(node_row):
                 for pos in range(1, position_count + 1):
                     if node_row.iloc[0].get(f"Position {pos}", "-") != "-":
                         effective_position_count = pos
 
-            # Redraw the reproductive branch to match the actual used positions.
+            branch_len = 0.90 + max(0, effective_position_count - 1) * 0.42
+            branch_end_x = side * branch_len
+            branch_end_y = y - 0.32 - max(0, effective_position_count - 2) * 0.04
+
+            # Main vegetative lateral stem.
+            ax.plot(
+                [0, side * 0.50, branch_end_x],
+                [y, y - 0.10, branch_end_y],
+                color="#399B43", lw=3.2, solid_capstyle="round", zorder=3
+            )
+
+            # Add a terminal leaf to make the lateral visually distinct.
+            leaf_x = branch_end_x + side * 0.14
+            leaf_y = branch_end_y - 0.02
+            ax.add_patch(Ellipse(
+                (leaf_x, leaf_y), 0.34, 0.17,
+                angle=-20 if side > 0 else 20,
+                facecolor="#6EAF42", edgecolor="#4E8A31",
+                lw=0.8, zorder=4
+            ))
+
+            # Place fruit directly on the vegetative lateral stem.
+            coords = []
+            if effective_position_count > 0:
+                for pos in range(1, effective_position_count + 1):
+                    frac = pos / (effective_position_count + 1)
+                    x = side * (0.32 + (branch_len - 0.32) * frac)
+                    py = y - 0.04 - (0.27 * frac)
+                    coords.append((pos, x, py))
+
+        else:
+            # Reproductive node: branch length is calculated from positions in use.
+            branch_len = 1.45
+            position_count = int(node_row.iloc[0]["Position Count"]) if len(node_row) else 3
+            position_count = max(0, min(MAX_POSITIONS, position_count))
+
+            effective_position_count = 0
+            if len(node_row):
+                for pos in range(1, position_count + 1):
+                    if node_row.iloc[0].get(f"Position {pos}", "-") != "-":
+                        effective_position_count = pos
+
             if effective_position_count == 0:
                 branch_len = 0.52
                 ax.plot([0, side * branch_len], [y, y + 0.05],
@@ -428,11 +467,15 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
                     coords.append((pos, x, py))
 
         # node dots like the supplied reference
-        node_colour = "#2E6E35" if node_type == "Vegetative" else "black"
+        node_colour = (
+            "#2E6E35" if node_type == "Vegetative"
+            else "#178F4A" if node_type == "Vegetative Lateral"
+            else "black"
+        )
         ax.add_patch(Circle((0, y), 0.095, facecolor=node_colour,
                             edgecolor="black", zorder=10))
 
-        if node_type == "Reproductive":
+        if node_type in ["Reproductive", "Vegetative Lateral"]:
             for pos, x, py in coords:
                 row = df[(df["Node"] == node) & (df["Position"] == pos)]
                 fruit = row.iloc[0]["Fruit"] if len(row) else "-"
@@ -447,7 +490,11 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
                             va="bottom", zorder=11)
 
         # Node number shown beside the stem
-        type_mark = "V" if node_type == "Vegetative" else "R"
+        type_mark = (
+            "V" if node_type == "Vegetative"
+            else "VL" if node_type == "Vegetative Lateral"
+            else "R"
+        )
         ax.text(-0.18 if side > 0 else 0.18, y, f"{node} {type_mark}",
                 fontsize=8, fontweight="bold", color="#1F1F1F",
                 ha="right" if side > 0 else "left", va="center", zorder=11)
@@ -599,8 +646,9 @@ with tab1:
     st.divider()
     st.subheader("Node × Position Entry")
     st.write(
-        "Each row is one node. Set it as **Vegetative** or **Reproductive**, then choose how many fruiting positions that node has. "
-        "You can increase or decrease reproductive nodes from **0 to 6 positions**. Position 1 is closest to the main stem."
+        "Each row is one node. Set it as **Vegetative**, **Vegetative Lateral**, or **Reproductive**. "
+        "Vegetative Lateral and Reproductive nodes can have **0 to 6 fruiting positions**. "
+        "Position 1 is closest to the main stem."
     )
 
     edited = st.data_editor(
@@ -614,7 +662,7 @@ with tab1:
             ),
             "Node Type": st.column_config.SelectboxColumn(
                 "Node Type",
-                options=["Vegetative", "Reproductive"],
+                options=["Vegetative", "Vegetative Lateral", "Reproductive"],
                 required=True,
                 width="medium"
             ),
@@ -750,17 +798,18 @@ with tab3:
 
     st.markdown("#### Node type summary")
     node_counts = st.session_state.plant_matrix["Node Type"].value_counts().reindex(
-        ["Vegetative", "Reproductive"], fill_value=0
+        ["Vegetative", "Vegetative Lateral", "Reproductive"], fill_value=0
     )
-    nc1, nc2, nc3 = st.columns(3)
+    nc1, nc2, nc3, nc4 = st.columns(4)
     nc1.metric("Vegetative Nodes", int(node_counts["Vegetative"]))
-    nc2.metric("Reproductive Nodes", int(node_counts["Reproductive"]))
-    reproductive_nodes = int(node_counts["Reproductive"])
+    nc2.metric("Vegetative Lateral", int(node_counts["Vegetative Lateral"]))
+    nc3.metric("Reproductive Nodes", int(node_counts["Reproductive"]))
+    fruiting_nodes = int(node_counts["Vegetative Lateral"] + node_counts["Reproductive"])
     avg_positions = (
-        metrics["total_positions"] / reproductive_nodes
-        if reproductive_nodes else 0
+        metrics["total_positions"] / fruiting_nodes
+        if fruiting_nodes else 0
     )
-    nc3.metric("Avg Positions / Reproductive Node", f"{avg_positions:.1f}")
+    nc4.metric("Avg Positions / Fruiting Node", f"{avg_positions:.1f}")
 
     summary_df = pd.DataFrame({
         "Metric": [

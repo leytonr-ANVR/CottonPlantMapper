@@ -1,8 +1,17 @@
-# Cotton Plant Mapper v14
+# Cotton Plant Mapper v15
 
-Updated plant diagram behaviour:
+Adds **Vegetative Lateral** as a third node type.
 
-- Reproductive branches now shorten automatically when trailing positions are set to **"-"**.
-- The branch ends at the last position that contains a Square, White Flower, Boll, Cracked Boll or Missing Fruit.
-- If all positions on a reproductive node are "-", only a short branch stub is shown.
-- Position Count can still be adjusted independently in the data-entry table.
+## Node types
+- Vegetative
+- Vegetative Lateral
+- Reproductive
+
+## Vegetative Lateral
+A Vegetative Lateral can now:
+- have 0–6 fruiting positions
+- display Square, White Flower, Boll, Cracked Boll or Missing Fruit
+- show fruit directly along the vegetative lateral stem, similar to the supplied reference
+- shorten automatically to the last active fruiting position
+
+Vegetative Lateral nodes are marked **VL** on the diagram and are counted separately on the dashboard.
