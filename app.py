@@ -8,40 +8,31 @@ from io import BytesIO
 from pathlib import Path
 import numpy as np
 
-st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌱", layout="wide")
 
 FRUIT_TYPES = ["-", "Boll", "Cracked Boll", "Square", "White Flower", "Missing Fruit"]
+NODE_TYPES = ["Vegetative", "Reproductive", "Vegetative Lateral"]
 MAX_POSITIONS = 6
 
-def blank_matrix(min_node=5, max_node=22):
-    n = max_node - min_node + 1
+def blank_matrix(min_node=1, max_node=22):
+    nodes = list(range(min_node, max_node + 1))
     data = {
-        "Node": list(range(min_node, max_node + 1)),
-        "Node Type": [
-            "Vegetative" if node <= 7 else "Reproductive"
-            for node in range(min_node, max_node + 1)
-        ],
-        "Position Count": [
-            0 if node <= 7 else 3
-            for node in range(min_node, max_node + 1)
-        ],
+        "Node": nodes,
+        "Node Type": ["Vegetative" if n <= 7 else "Reproductive" for n in nodes],
+        "Position Count": [0 if n <= 7 else 3 for n in nodes],
     }
-    for pos in range(1, MAX_POSITIONS + 1):
-        if pos == 1:
-            data[f"Position {pos}"] = [
-                "-" if node <= 7 else "Square"
-                for node in range(min_node, max_node + 1)
-            ]
+    for p in range(1, MAX_POSITIONS + 1):
+        if p == 1:
+            data[f"Position {p}"] = ["-" if n <= 7 else "Square" for n in nodes]
         else:
-            data[f"Position {pos}"] = ["-"] * n
-    data["Notes"] = [""] * n
+            data[f"Position {p}"] = ["-"] * len(nodes)
+    data["Notes"] = [""] * len(nodes)
     return pd.DataFrame(data)
 
 def normalize_matrix(df, min_node, max_node):
     base = blank_matrix(min_node, max_node)
     if df is None or df.empty or "Node" not in df.columns:
         return base
-
     df = df.copy()
     df["Node"] = pd.to_numeric(df["Node"], errors="coerce")
     df = df.dropna(subset=["Node"])
@@ -49,783 +40,313 @@ def normalize_matrix(df, min_node, max_node):
 
     if "Node Type" not in df.columns:
         df["Node Type"] = "Reproductive"
-    df["Node Type"] = df["Node Type"].where(
-        df["Node Type"].isin(["Vegetative", "Vegetative Lateral", "Reproductive"]),
-        "Reproductive"
-    )
+    df["Node Type"] = df["Node Type"].where(df["Node Type"].isin(NODE_TYPES), "Reproductive")
 
     if "Position Count" not in df.columns:
         df["Position Count"] = 3
-    df["Position Count"] = pd.to_numeric(df["Position Count"], errors="coerce").fillna(3).astype(int)
-    df["Position Count"] = df["Position Count"].clip(0, MAX_POSITIONS)
+    df["Position Count"] = pd.to_numeric(df["Position Count"], errors="coerce").fillna(3).astype(int).clip(0, MAX_POSITIONS)
 
-    position_cols = [f"Position {pos}" for pos in range(1, MAX_POSITIONS + 1)]
-    for col in position_cols:
+    pos_cols = [f"Position {p}" for p in range(1, MAX_POSITIONS + 1)]
+    for col in pos_cols:
         if col not in df.columns:
             df[col] = "-"
         df[col] = df[col].where(df[col].isin(FRUIT_TYPES), "-")
-
     if "Notes" not in df.columns:
         df["Notes"] = ""
 
-    keep_cols = ["Node", "Node Type", "Position Count"] + position_cols + ["Notes"]
-    out = base.merge(
-        df[keep_cols],
-        on="Node", how="left", suffixes=("", "_saved")
-    )
-    for col in ["Node Type", "Position Count"] + position_cols + ["Notes"]:
+    keep = ["Node", "Node Type", "Position Count"] + pos_cols + ["Notes"]
+    out = base.merge(df[keep], on="Node", how="left", suffixes=("", "_saved"))
+    for col in keep[1:]:
         saved = f"{col}_saved"
         if saved in out.columns:
             out[col] = out[saved].fillna(out[col])
 
-    # Standard vegetative nodes have no fruiting positions.
-    # Vegetative Lateral nodes may carry fruit along the lateral branch.
     out.loc[out["Node Type"] == "Vegetative", "Position Count"] = 0
-
-    # Clear values beyond the selected position count so summaries stay accurate.
-    for pos in range(1, MAX_POSITIONS + 1):
-        out.loc[out["Position Count"] < pos, f"Position {pos}"] = "-"
-
-    return out[keep_cols]
+    for p in range(1, MAX_POSITIONS + 1):
+        out.loc[out["Position Count"] < p, f"Position {p}"] = "-"
+    return out[keep]
 
 def matrix_to_long(df):
     rows = []
     for _, row in df.iterrows():
-        node = int(row["Node"])
-        node_type = row.get("Node Type", "Reproductive")
-        position_count = int(row.get("Position Count", 0))
-        for pos in range(1, position_count + 1):
+        for p in range(1, int(row["Position Count"]) + 1):
             rows.append({
-                "Node": node,
-                "Node Type": node_type,
-                "Position": pos,
-                "Fruit": row[f"Position {pos}"]
+                "Node": int(row["Node"]),
+                "Node Type": row["Node Type"],
+                "Position": p,
+                "Fruit": row[f"Position {p}"],
             })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=["Node","Node Type","Position","Fruit"])
 
-def calculate_metrics(matrix_df):
-    long_df = matrix_to_long(matrix_df)
-
-    total_nodes = int(len(matrix_df))
-    total_positions = int(matrix_df["Position Count"].sum())
-
-    if long_df.empty:
-        held_positions = 0
-        missing_positions = 0
-        retention = None
-    else:
-        held_positions = int(
-            long_df["Fruit"].isin(
-                ["Boll", "Cracked Boll", "Square", "White Flower"]
-            ).sum()
-        )
-        missing_positions = int((long_df["Fruit"] == "Missing Fruit").sum())
-        recorded = held_positions + missing_positions
-        retention = (held_positions / recorded * 100) if recorded else None
-
+def calculate_metrics(df):
+    long_df = matrix_to_long(df)
+    held = 0 if long_df.empty else int(long_df["Fruit"].isin(["Boll","Cracked Boll","Square","White Flower"]).sum())
+    missing = 0 if long_df.empty else int((long_df["Fruit"] == "Missing Fruit").sum())
+    total_positions = int(df["Position Count"].sum())
+    retention = (held / total_positions * 100) if total_positions else None
     return {
-        "total_nodes": total_nodes,
+        "total_nodes": len(df),
         "total_positions": total_positions,
-        "held_positions": held_positions,
-        "missing_positions": missing_positions,
+        "held_positions": held,
+        "missing_positions": missing,
         "retention": retention,
     }
 
+def draw_square(ax, x, y, s=.12):
+    ax.add_patch(Ellipse((x,y), s*.75, s*.9, facecolor="#55a630", edgecolor="#2f7d32", lw=.8, zorder=8))
+    for ang in [45,90,135,225,270,315]:
+        a=np.deg2rad(ang)
+        tip=(x+np.cos(a)*s*1.1,y+np.sin(a)*s*1.15)
+        l=(x+np.cos(a+.25)*s*.36,y+np.sin(a+.25)*s*.36)
+        r=(x+np.cos(a-.25)*s*.36,y+np.sin(a-.25)*s*.36)
+        ax.add_patch(Polygon([l,tip,r], closed=True, facecolor="#2f9e44", edgecolor="#267a35", lw=.5,zorder=9))
 
-# ---------- Cotton-style fruit symbols ----------
+def draw_flower(ax,x,y,s=.15):
+    for ang in [18,90,162,234,306]:
+        a=np.deg2rad(ang)
+        ax.add_patch(Ellipse((x+np.cos(a)*s*.42,y+np.sin(a)*s*.38),s*1.05,s*.8,angle=ang,
+                             facecolor="white",edgecolor="#eadde3",lw=.7,zorder=9))
+    ax.add_patch(Circle((x,y),s*.24,facecolor="#f3d6df",edgecolor="#d7aebb",lw=.6,zorder=10))
+    for ang in [205,240,275,310,345]:
+        a=np.deg2rad(ang)
+        tip=(x+np.cos(a)*s*1.0,y+np.sin(a)*s*.95)
+        l=(x+np.cos(a+.18)*s*.32,y+np.sin(a+.18)*s*.30)
+        r=(x+np.cos(a-.18)*s*.32,y+np.sin(a-.18)*s*.30)
+        ax.add_patch(Polygon([l,tip,r], closed=True, facecolor="#2f9e44",edgecolor="#267a35",lw=.5,zorder=8))
 
-def draw_square(ax, x, y, scale=0.12):
-    # Cotton square: compact green bud surrounded by pointed bracts.
-    ax.add_patch(Ellipse(
-        (x, y), scale*0.78, scale*0.92,
-        facecolor="#63A936", edgecolor="#3F7F28", lw=0.9, zorder=8
-    ))
-    for ang in [55, 90, 125, 205, 270, 335]:
-        a = np.deg2rad(ang)
-        base_l = (
-            x + np.cos(a + 0.28) * scale * 0.38,
-            y + np.sin(a + 0.28) * scale * 0.40
-        )
-        base_r = (
-            x + np.cos(a - 0.28) * scale * 0.38,
-            y + np.sin(a - 0.28) * scale * 0.40
-        )
-        tip = (
-            x + np.cos(a) * scale * 1.15,
-            y + np.sin(a) * scale * 1.18
-        )
-        ax.add_patch(Polygon(
-            [base_l, tip, base_r], closed=True,
-            facecolor="#4E9A31", edgecolor="#347326", lw=0.55, zorder=9
-        ))
+def draw_boll(ax,x,y,s=.14):
+    for dx,ang in [(-.28,-15),(0,0),(.28,15)]:
+        ax.add_patch(Ellipse((x+dx*s,y+.06*s),s*.68,s*1.0,angle=ang,facecolor="#67ad3c",edgecolor="#3e812d",lw=.8,zorder=8))
+    for ang in [55,85,115,210,270,330]:
+        a=np.deg2rad(ang)
+        tip=(x+np.cos(a)*s*1.18,y+np.sin(a)*s*1.22)
+        l=(x+np.cos(a+.18)*s*.36,y+np.sin(a+.18)*s*.34)
+        r=(x+np.cos(a-.18)*s*.36,y+np.sin(a-.18)*s*.34)
+        ax.add_patch(Polygon([l,tip,r],closed=True,facecolor="#4c9433",edgecolor="#31752a",lw=.5,zorder=9))
 
-def draw_white_flower(ax, x, y, scale=0.16):
-    # Broad white cotton flower with a soft pink centre and green bracts.
-    for ang in [18, 90, 162, 234, 306]:
-        a = np.deg2rad(ang)
-        px = x + np.cos(a) * scale * 0.46
-        py = y + np.sin(a) * scale * 0.42
-        ax.add_patch(Ellipse(
-            (px, py),
-            scale*1.20, scale*0.90,
-            angle=ang,
-            facecolor="#FFFDFD",
-            edgecolor="#F0DDE2",
-            lw=0.8, zorder=9
-        ))
-    ax.add_patch(Circle(
-        (x, y), scale*0.30,
-        facecolor="#F6D5DB", edgecolor="#DCAEB7", lw=0.7, zorder=10
-    ))
+def draw_cracked(ax,x,y,s=.14):
+    draw_boll(ax,x,y,s)
+    ax.add_patch(Ellipse((x,y+.05*s),s*.45,s*.55,facecolor="white",edgecolor="#ddd",lw=.6,zorder=10))
+    ax.plot([x,x],[y-.25*s,y+.34*s],color="#7a522c",lw=.9,zorder=11)
 
-    # Large pointed bracts around the base, like the supplied cotton illustration.
-    for ang in [190, 220, 250, 285, 320, 350]:
-        a = np.deg2rad(ang)
-        l = (
-            x + np.cos(a + 0.18) * scale * 0.34,
-            y + np.sin(a + 0.18) * scale * 0.32
-        )
-        r = (
-            x + np.cos(a - 0.18) * scale * 0.34,
-            y + np.sin(a - 0.18) * scale * 0.32
-        )
-        tip = (
-            x + np.cos(a) * scale * 1.20,
-            y + np.sin(a) * scale * 1.08
-        )
-        ax.add_patch(Polygon(
-            [l, tip, r], closed=True,
-            facecolor="#4E9B32", edgecolor="#347526", lw=0.6, zorder=8
-        ))
+def draw_missing(ax,x,y,s=.12):
+    ax.add_patch(Circle((x,y),s*.7,fill=False,edgecolor="#8a3b1f",lw=1.4,linestyle=(0,(4,3)),zorder=9))
 
-def draw_boll(ax, x, y, scale=0.15):
-    # Closed green cotton boll with several rounded locks and pointed bracts.
-    ax.plot(
-        [x, x - scale*0.12],
-        [y - scale*1.20, y - scale*0.58],
-        color="#4A8B31", lw=1.7, zorder=6
-    )
+def draw_symbol(ax,x,y,fruit,s=.13):
+    if fruit=="Boll": draw_boll(ax,x,y,s)
+    elif fruit=="Cracked Boll": draw_cracked(ax,x,y,s)
+    elif fruit=="Square": draw_square(ax,x,y,s)
+    elif fruit=="White Flower": draw_flower(ax,x,y,s)
+    elif fruit=="Missing Fruit": draw_missing(ax,x,y,s)
 
-    # Boll locks / lobes
-    lobes = [
-        (-0.30, 0.05, 0.72, 1.00, -16),
-        (0.00, 0.15, 0.76, 1.10, 0),
-        (0.30, 0.05, 0.72, 1.00, 16),
-    ]
-    for dx, dy, w, h, angle in lobes:
-        ax.add_patch(Ellipse(
-            (x + dx*scale, y + dy*scale),
-            scale*w, scale*h,
-            angle=angle,
-            facecolor="#6BAF3B", edgecolor="#4A8A2E",
-            lw=0.8, zorder=8
-        ))
-
-    # Fine lock seams
-    ax.plot(
-        [x, x - scale*0.18],
-        [y + scale*0.52, y - scale*0.30],
-        color="#4E8D31", lw=0.7, zorder=9
-    )
-    ax.plot(
-        [x, x + scale*0.18],
-        [y + scale*0.52, y - scale*0.30],
-        color="#4E8D31", lw=0.7, zorder=9
-    )
-
-    # Tall pointed bracts wrapping around the boll.
-    for ang in [55, 82, 108, 132, 205, 270, 335]:
-        a = np.deg2rad(ang)
-        l = (
-            x + np.cos(a + 0.18) * scale * 0.40,
-            y + np.sin(a + 0.18) * scale * 0.38
-        )
-        r = (
-            x + np.cos(a - 0.18) * scale * 0.40,
-            y + np.sin(a - 0.18) * scale * 0.38
-        )
-        tip = (
-            x + np.cos(a) * scale * 1.22,
-            y + np.sin(a) * scale * 1.28
-        )
-        ax.add_patch(Polygon(
-            [l, tip, r], closed=True,
-            facecolor="#4D9631", edgecolor="#347326",
-            lw=0.55, zorder=10
-        ))
-
-def draw_cracked_boll(ax, x, y, scale=0.15):
-    # Partially opened / cracked boll: green-brown boll with white cotton showing.
-    ax.plot([x, x], [y-scale*1.25, y-scale*0.62],
-            color="#6A3D1F", lw=1.5, zorder=6)
-
-    # Outer boll segments
-    for dx in [-0.34, 0.34]:
-        ax.add_patch(Ellipse(
-            (x + dx*scale, y),
-            scale*0.78, scale*1.10,
-            angle=-18 if dx < 0 else 18,
-            facecolor="#8FAF45",
-            edgecolor="#58752D",
-            lw=0.9,
-            zorder=8
-        ))
-
-    # Cotton visible through the cracked centre
-    for dx, dy, s in [(-0.12, 0.08, 0.48), (0.12, 0.08, 0.48), (0, -0.12, 0.44)]:
-        ax.add_patch(Circle(
-            (x + dx*scale, y + dy*scale),
-            scale*s,
-            facecolor="white",
-            edgecolor="#D7D7D7",
-            lw=0.7,
-            zorder=9
-        ))
-
-    # Brown split line
-    ax.plot([x, x], [y-scale*0.50, y+scale*0.52],
-            color="#70401F", lw=1.2, zorder=10)
-
-    # Bracts
-    for ang in [210, 270, 330]:
-        a = np.deg2rad(ang)
-        tip = (x + np.cos(a)*scale*1.20,
-               y + np.sin(a)*scale*1.02)
-        l = (x + np.cos(a+0.25)*scale*0.38,
-             y + np.sin(a+0.25)*scale*0.30)
-        r = (x + np.cos(a-0.25)*scale*0.38,
-             y + np.sin(a-0.25)*scale*0.30)
-        ax.add_patch(Polygon([l, tip, r], closed=True,
-                             facecolor="#688D38", edgecolor="#466127",
-                             lw=0.7, zorder=7))
-
-def draw_missing(ax, x, y, scale=0.13):
-    # Small fruiting scar/stub rather than a generic X.
-    ax.plot([x-scale*0.55, x+scale*0.35],
-            [y-scale*0.18, y+scale*0.10],
-            color="#6B4B2B", lw=2.0, zorder=8)
-    ax.add_patch(Circle((x+scale*0.42, y+scale*0.12),
-                        scale*0.20, facecolor="#9B6A3B",
-                        edgecolor="#5E3B20", lw=0.8, zorder=9))
-
-def draw_symbol(ax, x, y, fruit, scale=0.13):
-    if fruit == "Boll":
-        draw_boll(ax, x, y, scale*1.05)
-    elif fruit == "Cracked Boll":
-        draw_cracked_boll(ax, x, y, scale*1.05)
-    elif fruit == "Square":
-        draw_square(ax, x, y, scale)
-    elif fruit == "White Flower":
-        draw_white_flower(ax, x, y, scale*1.05)
-    elif fruit == "Missing Fruit":
-        draw_missing(ax, x, y, scale)
-
-def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, report_date, show_labels=True):
-    df = matrix_to_long(matrix_df)
+def make_figure(matrix_df, min_node, max_node, farm, paddock, grower, report_date, show_labels=True, show_positions=True, show_ground=True):
     metrics = calculate_metrics(matrix_df)
+    fig_h=max(8.5,(max_node-min_node+1)*.48)
+    fig,ax=plt.subplots(figsize=(7.8,fig_h))
+    ax.set_facecolor("white")
+    ground=min_node-1.05
+    ax.plot([0,0],[ground,max_node+.8],color="#008f45",lw=4,zorder=2)
 
-    n_nodes = max_node - min_node + 1
-    fig_h = max(9.5, n_nodes * 0.58)
-    fig, ax = plt.subplots(figsize=(9.2, fig_h))
-    ax.set_facecolor("#EAF5F8")
+    if show_ground:
+        ax.plot([-2.3,2.3],[ground,ground],color="#9b5e16",lw=5,solid_capstyle="round",zorder=1)
 
-    # Ground
-    ground_y = min_node - 1.15
-    ax.fill_between([-2.8, 2.8], ground_y-0.35, ground_y,
-                    color="#9A642C", zorder=0)
+    ax.add_patch(Polygon([(-.18,ground),(0,ground+.28),(.18,ground)],closed=True,facecolor="#008f45",edgecolor="#008f45"))
 
-    # Main green stem with terminal.
-    stem_x = 0
-    ax.plot([stem_x, stem_x], [ground_y, max_node + 0.9],
-            color="#3E8E45", lw=5.0, solid_capstyle="round", zorder=2)
+    for node in range(min_node,max_node+1):
+        row=matrix_df[matrix_df["Node"]==node]
+        if row.empty: continue
+        row=row.iloc[0]
+        ntype=row["Node Type"]
+        side=-1 if node%2 else 1
+        y=node
 
-    # Plant base
-    ax.add_patch(Polygon([
-        (-0.14, ground_y), (0.14, ground_y),
-        (0.04, ground_y+0.28), (-0.04, ground_y+0.28)
-    ], closed=True, facecolor="#3E8E45", edgecolor="#3E8E45", zorder=2))
+        node_color={"Vegetative":"#4d8ed8","Reproductive":"#0a9b43","Vegetative Lateral":"#f07d18"}[ntype]
+        ax.add_patch(Circle((0,y),.065,facecolor="white",edgecolor=node_color,lw=1.5,zorder=10))
 
-    # Terminal shape
-    ax.plot([0, -0.16], [max_node+0.9, max_node+1.16],
-            color="#5BAE3E", lw=3.2, zorder=3)
-    ax.plot([0, 0.16], [max_node+0.9, max_node+1.13],
-            color="#5BAE3E", lw=3.2, zorder=3)
-    ax.text(0, max_node+1.45, "Terminal", ha="center", va="center",
-            fontsize=12, fontweight="bold",
-            bbox=dict(boxstyle="round,pad=0.35", facecolor="white",
-                      edgecolor="none", alpha=0.95))
-
-    # Fruiting branches: more natural zig-zag shape, alternating sides.
-    for node in range(min_node, max_node + 1):
-        side = -1 if node % 2 else 1
-        y = node
-
-        node_row = matrix_df[matrix_df["Node"] == node]
-        node_type = node_row.iloc[0]["Node Type"] if len(node_row) else "Reproductive"
-
-        if node_type == "Vegetative":
-            # Standard vegetative node: short branch and leaf, no fruiting positions.
-            branch_len = 0.95
-            x1 = side * 0.42
-            x2 = side * branch_len
-            ax.plot([0, x1, x2], [y, y + 0.10, y + 0.28],
-                    color="#5EAB3D", lw=3.0, solid_capstyle="round", zorder=3)
-
-            leaf_x = x2 + side * 0.18
-            leaf_y = y + 0.34
-            ax.add_patch(Ellipse(
-                (leaf_x, leaf_y), 0.34, 0.16,
-                angle=25 if side > 0 else -25,
-                facecolor="#6EAF42", edgecolor="#4E8A31",
-                lw=0.8, zorder=4
-            ))
-            coords = []
-
-        elif node_type == "Vegetative Lateral":
-            # Vegetative lateral: a longer diagonal branch that can carry fruit
-            # directly along the branch stem, similar to the supplied example.
-            position_count = int(node_row.iloc[0]["Position Count"]) if len(node_row) else 3
-            position_count = max(0, min(MAX_POSITIONS, position_count))
-
-            effective_position_count = 0
-            if len(node_row):
-                for pos in range(1, position_count + 1):
-                    if node_row.iloc[0].get(f"Position {pos}", "-") != "-":
-                        effective_position_count = pos
-
-            branch_len = 0.90 + max(0, effective_position_count - 1) * 0.42
-            branch_end_x = side * branch_len
-            branch_end_y = y - 0.32 - max(0, effective_position_count - 2) * 0.04
-
-            # Main vegetative lateral stem.
-            ax.plot(
-                [0, side * 0.50, branch_end_x],
-                [y, y - 0.10, branch_end_y],
-                color="#399B43", lw=3.2, solid_capstyle="round", zorder=3
-            )
-
-            # Add a terminal leaf to make the lateral visually distinct.
-            leaf_x = branch_end_x + side * 0.14
-            leaf_y = branch_end_y - 0.02
-            ax.add_patch(Ellipse(
-                (leaf_x, leaf_y), 0.34, 0.17,
-                angle=-20 if side > 0 else 20,
-                facecolor="#6EAF42", edgecolor="#4E8A31",
-                lw=0.8, zorder=4
-            ))
-
-            # Place fruit directly on the vegetative lateral stem.
-            coords = []
-            if effective_position_count > 0:
-                for pos in range(1, effective_position_count + 1):
-                    frac = pos / (effective_position_count + 1)
-                    x = side * (0.32 + (branch_len - 0.32) * frac)
-                    py = y - 0.04 - (0.27 * frac)
-                    coords.append((pos, x, py))
-
+        if ntype=="Vegetative":
+            end=side*.88
+            ax.plot([0,end],[y,y+.22],color="#008f45",lw=2.3,solid_capstyle="round")
+            ax.add_patch(Ellipse((end+side*.14,y+.26),.30,.14,angle=20*side,facecolor="#62ae45",edgecolor="#39863a",lw=.6))
+            coords=[]
         else:
-            # Reproductive node: branch length is calculated from positions in use.
-            branch_len = 1.45
-            position_count = int(node_row.iloc[0]["Position Count"]) if len(node_row) else 3
-            position_count = max(0, min(MAX_POSITIONS, position_count))
+            count=int(row["Position Count"])
+            effective=0
+            for p in range(1,count+1):
+                if row[f"Position {p}"]!="-":
+                    effective=p
+            draw_count=max(effective,1 if count>0 else 0)
+            branch_len=.65+max(0,draw_count-1)*.40
 
-            effective_position_count = 0
-            if len(node_row):
-                for pos in range(1, position_count + 1):
-                    if node_row.iloc[0].get(f"Position {pos}", "-") != "-":
-                        effective_position_count = pos
-
-            if effective_position_count == 0:
-                branch_len = 0.52
-                ax.plot([0, side * branch_len], [y, y + 0.05],
-                        color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+            if ntype=="Vegetative Lateral":
+                ex=side*branch_len
+                ey=y-.34
+                ax.plot([0,side*.48,ex],[y,y-.1,ey],color="#008f45",lw=2.4,solid_capstyle="round")
+                coords=[]
+                for p in range(1,effective+1):
+                    frac=p/(effective+1)
+                    coords.append((p,side*(.26+(branch_len-.26)*frac),y-.05-.24*frac))
             else:
-                branch_len = 0.62 + max(0, effective_position_count - 1) * 0.43
-                x1 = side * min(0.52, branch_len)
-                x2 = side * min(1.05, branch_len)
-                x3 = side * branch_len
-                y1 = y + 0.03
-                y2 = y + 0.18
-                y3 = y + 0.18 + max(0, effective_position_count - 2) * 0.07
+                ex=side*branch_len
+                ey=y+.22+max(0,draw_count-2)*.04
+                ax.plot([0,side*.46,ex],[y,y+.04,ey],color="#008f45",lw=2.4,solid_capstyle="round")
+                coords=[]
+                for p in range(1,effective+1):
+                    frac=p/max(effective,1)
+                    coords.append((p,side*(.28+(branch_len-.28)*frac),y+.03+.18*frac))
 
-                if effective_position_count == 1:
-                    ax.plot([0, x3], [y, y + 0.06],
-                            color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
-                elif effective_position_count == 2:
-                    ax.plot([0, x1, x3], [y, y1, y + 0.18],
-                            color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
-                else:
-                    ax.plot([0, x1, x2, x3], [y, y1, y2, y3],
-                            color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
-
-            coords = []
-            if effective_position_count > 0:
-                for pos in range(1, effective_position_count + 1):
-                    frac = pos / max(effective_position_count, 1)
-                    x = side * (0.34 + (branch_len - 0.34) * frac)
-                    py = y + 0.03 + 0.25 * frac + max(0, pos - 3) * 0.025
-                    coords.append((pos, x, py))
-
-        # node dots like the supplied reference
-        node_colour = (
-            "#2E6E35" if node_type == "Vegetative"
-            else "#178F4A" if node_type == "Vegetative Lateral"
-            else "black"
-        )
-        ax.add_patch(Circle((0, y), 0.095, facecolor=node_colour,
-                            edgecolor="black", zorder=10))
-
-        if node_type in ["Reproductive", "Vegetative Lateral"]:
-            for pos, x, py in coords:
-                row = df[(df["Node"] == node) & (df["Position"] == pos)]
-                fruit = row.iloc[0]["Fruit"] if len(row) else "-"
-                if fruit != "-":
-                    draw_symbol(ax, x, py, fruit, scale=0.14)
-
+            for p,x,py in coords:
+                fruit=row[f"Position {p}"]
+                if fruit!="-":
+                    draw_symbol(ax,x,py,fruit,.13)
+                if show_positions:
+                    ax.add_patch(Circle((x,py),.055,facecolor="white",edgecolor="#008f45",lw=1.2,zorder=7))
                 if show_labels:
-                    off = 0.10 if side > 0 else -0.10
-                    ax.text(x + off, py + 0.15, f"{node}-{pos}",
-                            fontsize=7, color="#333333",
-                            ha="left" if side > 0 else "right",
-                            va="bottom", zorder=11)
+                    ax.text(x+(0.08 if side>0 else -0.08),py+.10,f"{node}-{p}",fontsize=6.6,
+                            ha="left" if side>0 else "right",color="#334")
 
-        # Node number shown beside the stem
-        type_mark = (
-            "V" if node_type == "Vegetative"
-            else "VL" if node_type == "Vegetative Lateral"
-            else "R"
-        )
-        ax.text(-0.18 if side > 0 else 0.18, y, f"{node} {type_mark}",
-                fontsize=8, fontweight="bold", color="#1F1F1F",
-                ha="right" if side > 0 else "left", va="center", zorder=11)
+        if show_labels:
+            mark={"Vegetative":"V","Reproductive":"R","Vegetative Lateral":"VL"}[ntype]
+            ax.text(.10 if side<0 else -.10,y,f"{node} {mark}",fontsize=7.5,fontweight="bold",
+                    ha="left" if side<0 else "right",va="center",color="#111")
 
-    # Clean report header.
-    # Keep the title and report details away from the logo so nothing overlaps.
-    ax.set_title("", pad=0)
+    ax.text(0,max_node+.95,"Terminal",ha="center",va="center",fontsize=11,fontweight="bold")
+    ax.plot([0,-.15],[max_node+.78,max_node+1.02],color="#4da83b",lw=2.4)
+    ax.plot([0,.15],[max_node+.78,max_node+1.02],color="#4da83b",lw=2.4)
 
-    try:
-        logo_path = Path(__file__).with_name("agnvet_rural_logo.png")
-        if logo_path.exists():
-            logo_img = mpimg.imread(str(logo_path))
-            logo_ax = fig.add_axes([0.075, 0.930, 0.115, 0.050])
-            logo_ax.imshow(logo_img)
-            logo_ax.axis("off")
-    except Exception:
-        pass
-
-    # Main report title.
-    fig.text(
-        0.22, 0.963, title,
-        ha="left", va="center",
-        fontsize=17, fontweight="bold",
-        color="#222222"
-    )
-
-    # Compact report details in two balanced rows.
-    left_details = []
-    right_details = []
-    if farm:
-        left_details.append(f"Farm: {farm}")
-    if paddock:
-        left_details.append(f"Paddock: {paddock}")
-    if grower:
-        right_details.append(f"Grower: {grower}")
-    if report_date:
-        right_details.append(f"Date: {report_date}")
-
-    fig.text(
-        0.22, 0.938,
-        "   |   ".join(left_details),
-        ha="left", va="center",
-        fontsize=9.2, color="#444444"
-    )
-    fig.text(
-        0.60, 0.938,
-        "   |   ".join(right_details),
-        ha="left", va="center",
-        fontsize=9.2, color="#444444"
-    )
-
-    retention_text = (
-        f"{metrics['retention']:.1f}%"
-        if metrics["retention"] is not None else "-"
-    )
-
-    # Summary metrics on their own row beneath the header.
-    summary_text = (
-        f"Total Nodes  {metrics['total_nodes']}     "
-        f"Total Positions  {metrics['total_positions']}     "
-        f"Held Positions  {metrics['held_positions']}     "
-        f"Missing Fruit  {metrics['missing_positions']}     "
-        f"Retention  {retention_text}"
-    )
-    fig.text(
-        0.5, 0.907, summary_text,
-        ha="center", va="center",
-        fontsize=9.5, fontweight="bold",
-        color="#222222",
-        bbox=dict(
-            boxstyle="round,pad=0.42",
-            facecolor="#F7FAFA",
-            edgecolor="#C7D4D8",
-            alpha=1.0
-        )
-    )
-
-    ax.set_xlim(-2.55, 2.55)
-    ax.set_ylim(ground_y-0.20, max_node + 1.85)
+    ax.set_xlim(-2.45,2.45)
+    ax.set_ylim(ground-.15,max_node+1.35)
     ax.axis("off")
-
-    # Custom legend with the same cotton-style symbols
-    lx = -2.25
-    ly = ground_y + 0.32
-    spacing = 0.72
-    legend_items = ["Square", "White Flower", "Cracked Boll", "Boll", "Missing Fruit"]
-    for i, fruit in enumerate(legend_items):
-        yy = ly + i * spacing
-        draw_symbol(ax, lx, yy, fruit, scale=0.13)
-        ax.text(lx + 0.28, yy, fruit, ha="left", va="center",
-                fontsize=9, color="#222222")
-
-    fig.tight_layout(rect=[0.03, 0.02, 0.97, 0.885])
+    fig.tight_layout()
     return fig
 
 def fig_to_png(fig):
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=220, bbox_inches="tight")
-    buf.seek(0)
-    return buf
-
+    b=BytesIO(); fig.savefig(b,format="png",dpi=220,bbox_inches="tight"); b.seek(0); return b
 def fig_to_pdf(fig):
-    buf = BytesIO()
-    fig.savefig(buf, format="pdf", bbox_inches="tight")
-    buf.seek(0)
-    return buf
+    b=BytesIO(); fig.savefig(b,format="pdf",bbox_inches="tight"); b.seek(0); return b
 
-logo_file = Path(__file__).with_name("agnvet_rural_logo.png")
-if logo_file.exists():
-    st.image(str(logo_file), width=260)
+st.markdown("""
+<style>
+:root{--navy:#062d57;--green:#078447;--border:#d8e3ec;--soft:#f8fbfd;}
+.block-container{max-width:1550px;padding-top:.65rem;padding-bottom:1rem}
+[data-testid="stSidebar"]{display:none}
+h1,h2,h3,h4{color:var(--navy)}
+.top-title{font-size:31px;font-weight:800;color:var(--navy);line-height:1}
+.top-sub{font-size:15px;color:#315d8a;margin-top:6px}
+.report-title{color:var(--green);font-weight:800;font-size:18px;margin-bottom:5px}
+.panel{border:1px solid var(--border);border-radius:12px;background:#fff;padding:12px 14px}
+.legend{border:1px solid var(--border);border-radius:12px;background:#fff;padding:12px 14px;margin-bottom:12px}
+.metric-card{border:1px solid var(--border);border-radius:12px;background:linear-gradient(#fff,#f7fbfb);padding:12px;text-align:center;min-height:90px}
+.metric-label{font-size:14px;color:#17395f}
+.metric-value{font-size:27px;font-weight:800;color:#0b7a38;margin-top:4px}
+.stTabs [data-baseweb="tab-list"]{gap:4px}
+.stTabs [data-baseweb="tab"]{height:45px;padding:0 16px;color:var(--navy);font-weight:700}
+.stTabs [aria-selected="true"]{color:var(--green)!important;border-bottom:3px solid var(--green)!important}
+div[data-testid="stDataEditor"]{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.stButton>button,.stDownloadButton>button{border-radius:8px!important;font-weight:700!important}
+</style>
+""", unsafe_allow_html=True)
 
-st.title("🌿 Cotton Plant Mapper")
-st.caption(
-    "Map cotton fruiting by node and position, then generate a plant-style diagram using cotton squares, flowers, bolls and fruiting scars."
-)
+logo=Path(__file__).with_name("agnvet_rural_logo.png")
+hc1,hc2,hc3=st.columns([1.0,2.7,2.2],vertical_alignment="center")
+with hc1:
+    if logo.exists(): st.image(str(logo),width=190)
+with hc2:
+    st.markdown('<div class="top-title">Cotton Plant Mapper 🌱</div><div class="top-sub">Accurate mapping. Better decisions.</div>',unsafe_allow_html=True)
+with hc3:
+    top_pdf,top_png,top_clear=st.columns(3)
+    pdf_slot=top_pdf.empty()
+    png_slot=top_png.empty()
+    clear_map=top_clear.button("🗑 Clear Map",use_container_width=True)
 
-with st.sidebar:
-    st.header("Plant setup")
-    min_node = st.number_input("Lowest node", min_value=1, max_value=50, value=1, step=1)
-    max_node = st.number_input(
-        "Highest node",
-        min_value=int(min_node),
-        max_value=60,
-        value=max(22, int(min_node)),
-        step=1
-    )
-    plant_name = st.text_input("Plant / sample name", value="Cotton Plant Map")
-    show_labels = st.checkbox("Show node-position labels", value=True)
+st.markdown('<div class="panel"><div class="report-title">▽ &nbsp; Report Details</div></div>',unsafe_allow_html=True)
+r1,r2,r3,r4,r5,r6=st.columns([1.4,1.4,1.2,.85,.7,.7])
+farm=r1.text_input("Farm",value="")
+paddock=r2.text_input("Paddock Name",value="")
+grower=r3.text_input("Grower",value="")
+report_date=r4.date_input("Date")
+min_node=r5.number_input("Lowest Node",1,50,1,1)
+max_node=r6.number_input("Max Nodes",int(min_node),60,max(22,int(min_node)),1)
 
 if "plant_matrix" not in st.session_state:
-    st.session_state.plant_matrix = blank_matrix(int(min_node), int(max_node))
+    st.session_state.plant_matrix=blank_matrix(int(min_node),int(max_node))
+st.session_state.plant_matrix=normalize_matrix(st.session_state.plant_matrix,int(min_node),int(max_node))
+if clear_map:
+    st.session_state.plant_matrix=blank_matrix(int(min_node),int(max_node)); st.rerun()
 
-st.session_state.plant_matrix = normalize_matrix(
-    st.session_state.plant_matrix, int(min_node), int(max_node)
-)
+left,centre,right=st.columns([1.22,1.52,.46],gap="medium")
 
-tab1, tab2, tab3 = st.tabs(["Data Entry", "Plant Map", "Summary"])
+show_labels=True; show_positions=True; show_ground=True
 
-with tab1:
-    st.subheader("Report Details")
-    rd1, rd2 = st.columns(2)
-    with rd1:
-        farm = st.text_input("Farm", value="", key="report_farm")
-        grower = st.text_input("Grower", value="", key="report_grower")
-    with rd2:
-        paddock = st.text_input("Paddock Name", value="", key="report_paddock")
-        report_date = st.date_input("Date", key="report_date")
-
-    st.divider()
-    st.subheader("Node × Position Entry")
-    st.write(
-        "Each row is one node. Set it as **Vegetative**, **Vegetative Lateral**, or **Reproductive**. "
-        "Vegetative Lateral and Reproductive nodes can have **0 to 6 fruiting positions**. "
-        "Position 1 is closest to the main stem."
-    )
-
-    edited = st.data_editor(
-        st.session_state.plant_matrix,
-        use_container_width=True,
-        hide_index=True,
-        num_rows="fixed",
-        column_config={
-            "Node": st.column_config.NumberColumn(
-                "Node", disabled=True, width="small"
-            ),
-            "Node Type": st.column_config.SelectboxColumn(
-                "Node Type",
-                options=["Vegetative", "Vegetative Lateral", "Reproductive"],
-                required=True,
-                width="medium"
-            ),
-            "Position Count": st.column_config.NumberColumn(
-                "Positions",
-                min_value=0,
-                max_value=MAX_POSITIONS,
-                step=1,
-                required=True,
-                width="small"
-            ),
-            "Position 1": st.column_config.SelectboxColumn(
-                "1", options=FRUIT_TYPES, required=True, width="small"
-            ),
-            "Position 2": st.column_config.SelectboxColumn(
-                "2", options=FRUIT_TYPES, required=True, width="small"
-            ),
-            "Position 3": st.column_config.SelectboxColumn(
-                "3", options=FRUIT_TYPES, required=True, width="small"
-            ),
-            "Position 4": st.column_config.SelectboxColumn(
-                "4", options=FRUIT_TYPES, required=True, width="small"
-            ),
-            "Position 5": st.column_config.SelectboxColumn(
-                "5", options=FRUIT_TYPES, required=True, width="small"
-            ),
-            "Position 6": st.column_config.SelectboxColumn(
-                "6", options=FRUIT_TYPES, required=True, width="small"
-            ),
-            "Notes": st.column_config.TextColumn("Notes", width="medium"),
-        },
-        key="plant_matrix_editor",
-    )
-
-    st.session_state.plant_matrix = normalize_matrix(
-        edited, int(min_node), int(max_node)
-    )
-
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("Clear all fruit", use_container_width=True):
-            st.session_state.plant_matrix = blank_matrix(int(min_node), int(max_node))
-            st.rerun()
-    with c2:
-        st.download_button(
-            "Download data as CSV",
-            data=st.session_state.plant_matrix.to_csv(index=False).encode("utf-8"),
-            file_name="cotton_plant_map_data.csv",
-            mime="text/csv",
-            use_container_width=True,
+with left:
+    t1,t2,t3=st.tabs(["📋 Data Entry","☷ Summary","⚙ Settings"])
+    with t1:
+        st.markdown("### Node Entry")
+        a,b,c=st.columns(3)
+        a.success("**V  Vegetative**")
+        b.success("**R  Reproductive**")
+        c.warning("**VL  Vegetative Lateral**")
+        edited=st.data_editor(
+            st.session_state.plant_matrix,use_container_width=True,hide_index=True,num_rows="fixed",height=520,
+            column_config={
+                "Node":st.column_config.NumberColumn("Node",disabled=True,width="small"),
+                "Node Type":st.column_config.SelectboxColumn("Type",options=NODE_TYPES,required=True),
+                "Position Count":st.column_config.NumberColumn("Positions",min_value=0,max_value=MAX_POSITIONS,step=1,width="small"),
+                **{f"Position {p}":st.column_config.SelectboxColumn(f"Pos {p}",options=FRUIT_TYPES,required=True) for p in range(1,MAX_POSITIONS+1)},
+                "Notes":st.column_config.TextColumn("Notes"),
+            },
+            column_order=["Node","Node Type","Position 1","Position 2","Position 3","Position Count","Position 4","Position 5","Position 6","Notes"],
+            key="mapper_editor"
         )
+        st.session_state.plant_matrix=normalize_matrix(edited,int(min_node),int(max_node))
+        c1,c2,c3=st.columns(3)
+        if c1.button("＋ Add Node",use_container_width=True):
+            st.info("Increase **Max Nodes** above to add another node.")
+        if c2.button("− Remove Last",use_container_width=True):
+            st.info("Reduce **Max Nodes** above to remove the last node.")
+        if c3.button("🪄 Auto Fill",use_container_width=True):
+            df=st.session_state.plant_matrix.copy()
+            for i,row in df.iterrows():
+                if row["Node Type"]=="Reproductive" and row["Position Count"]>0 and row["Position 1"]=="-":
+                    df.at[i,"Position 1"]="Square"
+            st.session_state.plant_matrix=df; st.rerun()
+    with t2:
+        m=calculate_metrics(st.session_state.plant_matrix)
+        st.metric("Total Nodes",m["total_nodes"])
+        st.metric("Total Positions",m["total_positions"])
+        st.metric("Held Positions",m["held_positions"])
+        st.metric("Missing Fruit",m["missing_positions"])
+        st.metric("Retention %",f'{m["retention"]:.1f}%' if m["retention"] is not None else "—")
+    with t3:
+        show_labels=st.toggle("Show Labels",True)
+        show_positions=st.toggle("Show Positions",True)
+        show_ground=st.toggle("Show Ground Line",True)
+        st.toggle("Compact View",False)
 
-    uploaded = st.file_uploader("Load a saved CSV", type=["csv"])
-    if uploaded is not None:
-        try:
-            loaded = pd.read_csv(uploaded)
-            st.session_state.plant_matrix = normalize_matrix(
-                loaded, int(min_node), int(max_node)
-            )
-            st.success("CSV loaded.")
-        except Exception as e:
-            st.error(f"Could not read CSV: {e}")
-
-with tab2:
-    fig = make_figure(
-        st.session_state.plant_matrix,
-        int(min_node),
-        int(max_node),
-        plant_name,
-        farm,
-        paddock,
-        grower,
-        report_date.strftime("%d/%m/%Y") if report_date else "",
-        show_labels,
-    )
-    st.pyplot(fig, use_container_width=False)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.download_button(
-            "Download map as PNG",
-            data=fig_to_png(fig),
-            file_name="cotton_plant_map.png",
-            mime="image/png",
-            use_container_width=True,
-        )
-    with c2:
-        st.download_button(
-            "Download map as PDF",
-            data=fig_to_pdf(fig),
-            file_name="cotton_plant_map.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
+with centre:
+    st.markdown("<h3 style='text-align:center;margin:0 0 5px'>Cotton Plant Map</h3>",unsafe_allow_html=True)
+    fig=make_figure(st.session_state.plant_matrix,int(min_node),int(max_node),farm,paddock,grower,
+                    report_date.strftime("%d/%m/%Y"),show_labels,show_positions,show_ground)
+    st.pyplot(fig,use_container_width=True)
+    png=fig_to_png(fig); pdf=fig_to_pdf(fig)
+    with pdf_slot.container():
+        st.download_button("⇩ Export PDF",pdf,"cotton_plant_map.pdf","application/pdf",use_container_width=True)
+    with png_slot.container():
+        st.download_button("⇩ Export PNG",png,"cotton_plant_map.png","image/png",use_container_width=True)
     plt.close(fig)
 
-with tab3:
-    long_df = matrix_to_long(st.session_state.plant_matrix)
-    metrics = calculate_metrics(st.session_state.plant_matrix)
+with right:
+    st.markdown('<div class="legend"><h4>Legend</h4>🌿 &nbsp; Boll<br><br>🌸 &nbsp; White Flower<br><br>✹ &nbsp; Square<br><br>◐ &nbsp; Cracked Boll<br><br>◌ &nbsp; Missing Fruit<br><br>○ &nbsp; Position (Empty)</div>',unsafe_allow_html=True)
+    st.markdown('<div class="legend"><h4>Node Types</h4>🟢 &nbsp; <b>R</b> Reproductive<br><br>🔵 &nbsp; <b>V</b> Vegetative<br><br>🟠 &nbsp; <b>VL</b> Vegetative Lateral</div>',unsafe_allow_html=True)
 
-    st.markdown("#### Report details")
-    details_df = pd.DataFrame({
-        "Field": ["Farm", "Paddock", "Grower", "Date"],
-        "Value": [
-            farm or "—",
-            paddock or "—",
-            grower or "—",
-            report_date.strftime("%d/%m/%Y") if report_date else "—",
-        ],
-    })
-    st.dataframe(details_df, use_container_width=True, hide_index=True)
-
-    st.markdown("#### Plant totals")
-    total_cols = st.columns(3)
-    total_cols[0].metric("Total Nodes", metrics["total_nodes"])
-    total_cols[1].metric("Total Positions", metrics["total_positions"])
-    total_cols[2].metric("Held Positions", metrics["held_positions"])
-
-    active = long_df[long_df["Fruit"] != "-"].copy() if not long_df.empty else pd.DataFrame(columns=["Fruit"])
-    counts = active["Fruit"].value_counts().reindex(
-        ["Boll", "Cracked Boll", "Square", "White Flower", "Missing Fruit"], fill_value=0
-    )
-
-    st.markdown("#### Fruit counts")
-    cols = st.columns(5)
-    for col, label in zip(cols, counts.index):
-        col.metric(label, int(counts[label]))
-
-    occupied = metrics["held_positions"]
-    missing = metrics["missing_positions"]
-    recorded = occupied + missing
-
-
-    st.markdown("#### Node type summary")
-    node_counts = st.session_state.plant_matrix["Node Type"].value_counts().reindex(
-        ["Vegetative", "Vegetative Lateral", "Reproductive"], fill_value=0
-    )
-    nc1, nc2, nc3, nc4 = st.columns(4)
-    nc1.metric("Vegetative Nodes", int(node_counts["Vegetative"]))
-    nc2.metric("Vegetative Lateral", int(node_counts["Vegetative Lateral"]))
-    nc3.metric("Reproductive Nodes", int(node_counts["Reproductive"]))
-    fruiting_nodes = int(node_counts["Vegetative Lateral"] + node_counts["Reproductive"])
-    avg_positions = (
-        metrics["total_positions"] / fruiting_nodes
-        if fruiting_nodes else 0
-    )
-    nc4.metric("Avg Positions / Fruiting Node", f"{avg_positions:.1f}")
-
-    summary_df = pd.DataFrame({
-        "Metric": [
-            "Recorded fruiting sites",
-            "Held positions",
-            "Missing fruit",
-            "Retention of recorded sites",
-        ],
-        "Value": [
-            recorded,
-            occupied,
-            missing,
-            f"{(occupied / recorded * 100):.1f}%" if recorded else "—",
-        ],
-    })
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
-
-st.divider()
-st.caption("Plant map styling updated to resemble a real cotton plant with natural green branches and cotton-specific fruit symbols.")
+m=calculate_metrics(st.session_state.plant_matrix)
+st.write("")
+cols=st.columns(5)
+cards=[
+    ("🌱 Total Nodes",m["total_nodes"]),
+    ("○ Total Positions",m["total_positions"]),
+    ("🌿 Held Positions",m["held_positions"]),
+    ("◌ Missing Fruit",m["missing_positions"]),
+    ("▥ Retention %",f'{m["retention"]:.1f}%' if m["retention"] is not None else "—"),
+]
+for col,(lab,val) in zip(cols,cards):
+    col.markdown(f'<div class="metric-card"><div class="metric-label">{lab}</div><div class="metric-value">{val}</div></div>',unsafe_allow_html=True)
