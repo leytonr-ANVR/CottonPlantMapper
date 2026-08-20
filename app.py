@@ -9,17 +9,19 @@ import numpy as np
 st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌿", layout="wide")
 
 FRUIT_TYPES = ["-", "Boll", "Cracked Boll", "Square", "White Flower", "Missing Fruit"]
-POSITIONS = [1, 2, 3]
+MAX_POSITIONS = 6
 
 def blank_matrix(min_node=5, max_node=22):
-    return pd.DataFrame({
+    n = max_node - min_node + 1
+    data = {
         "Node": list(range(min_node, max_node + 1)),
-        "Node Type": ["Reproductive"] * (max_node - min_node + 1),
-        "Position 1": ["-"] * (max_node - min_node + 1),
-        "Position 2": ["-"] * (max_node - min_node + 1),
-        "Position 3": ["-"] * (max_node - min_node + 1),
-        "Notes": [""] * (max_node - min_node + 1),
-    })
+        "Node Type": ["Reproductive"] * n,
+        "Position Count": [3] * n,
+    }
+    for pos in range(1, MAX_POSITIONS + 1):
+        data[f"Position {pos}"] = ["-"] * n
+    data["Notes"] = [""] * n
+    return pd.DataFrame(data)
 
 def normalize_matrix(df, min_node, max_node):
     base = blank_matrix(min_node, max_node)
@@ -38,7 +40,13 @@ def normalize_matrix(df, min_node, max_node):
         "Reproductive"
     )
 
-    for col in ["Position 1", "Position 2", "Position 3"]:
+    if "Position Count" not in df.columns:
+        df["Position Count"] = 3
+    df["Position Count"] = pd.to_numeric(df["Position Count"], errors="coerce").fillna(3).astype(int)
+    df["Position Count"] = df["Position Count"].clip(0, MAX_POSITIONS)
+
+    position_cols = [f"Position {pos}" for pos in range(1, MAX_POSITIONS + 1)]
+    for col in position_cols:
         if col not in df.columns:
             df[col] = "-"
         df[col] = df[col].where(df[col].isin(FRUIT_TYPES), "-")
@@ -46,28 +54,68 @@ def normalize_matrix(df, min_node, max_node):
     if "Notes" not in df.columns:
         df["Notes"] = ""
 
+    keep_cols = ["Node", "Node Type", "Position Count"] + position_cols + ["Notes"]
     out = base.merge(
-        df[["Node", "Node Type", "Position 1", "Position 2", "Position 3", "Notes"]],
+        df[keep_cols],
         on="Node", how="left", suffixes=("", "_saved")
     )
-    for col in ["Node Type", "Position 1", "Position 2", "Position 3", "Notes"]:
+    for col in ["Node Type", "Position Count"] + position_cols + ["Notes"]:
         saved = f"{col}_saved"
         if saved in out.columns:
             out[col] = out[saved].fillna(out[col])
-    return out[["Node", "Node Type", "Position 1", "Position 2", "Position 3", "Notes"]]
+
+    # Vegetative nodes have no fruiting positions.
+    out.loc[out["Node Type"] == "Vegetative", "Position Count"] = 0
+
+    # Clear values beyond the selected position count so summaries stay accurate.
+    for pos in range(1, MAX_POSITIONS + 1):
+        out.loc[out["Position Count"] < pos, f"Position {pos}"] = "-"
+
+    return out[keep_cols]
 
 def matrix_to_long(df):
     rows = []
     for _, row in df.iterrows():
         node = int(row["Node"])
-        for pos in POSITIONS:
+        node_type = row.get("Node Type", "Reproductive")
+        position_count = int(row.get("Position Count", 0))
+        for pos in range(1, position_count + 1):
             rows.append({
                 "Node": node,
-                "Node Type": row.get("Node Type", "Reproductive"),
+                "Node Type": node_type,
                 "Position": pos,
                 "Fruit": row[f"Position {pos}"]
             })
     return pd.DataFrame(rows)
+
+def calculate_metrics(matrix_df):
+    long_df = matrix_to_long(matrix_df)
+
+    total_nodes = int(len(matrix_df))
+    total_positions = int(matrix_df["Position Count"].sum())
+
+    if long_df.empty:
+        held_positions = 0
+        missing_positions = 0
+        retention = None
+    else:
+        held_positions = int(
+            long_df["Fruit"].isin(
+                ["Boll", "Cracked Boll", "Square", "White Flower"]
+            ).sum()
+        )
+        missing_positions = int((long_df["Fruit"] == "Missing Fruit").sum())
+        recorded = held_positions + missing_positions
+        retention = (held_positions / recorded * 100) if recorded else None
+
+    return {
+        "total_nodes": total_nodes,
+        "total_positions": total_positions,
+        "held_positions": held_positions,
+        "missing_positions": missing_positions,
+        "retention": retention,
+    }
+
 
 # ---------- Cotton-style fruit symbols ----------
 
@@ -208,6 +256,7 @@ def draw_symbol(ax, x, y, fruit, scale=0.13):
 
 def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
     df = matrix_to_long(matrix_df)
+    metrics = calculate_metrics(matrix_df)
 
     n_nodes = max_node - min_node + 1
     fig_h = max(9.5, n_nodes * 0.58)
@@ -279,11 +328,24 @@ def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
             ax.plot([x0, x1, x2, x3], [y, y1, y2, y3],
                     color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
 
-            coords = [
-                (side * 0.48, y + 0.04),
-                (side * 0.98, y + 0.18),
-                (side * (branch_len - 0.05), y + 0.33),
-            ]
+            position_count = int(node_row.iloc[0]["Position Count"]) if len(node_row) else 3
+            position_count = max(0, min(MAX_POSITIONS, position_count))
+
+            # Lengthen the branch when more positions are selected.
+            if position_count > 3:
+                branch_len += (position_count - 3) * 0.34
+                x3 = side * branch_len
+                y3 = y + 0.34 + (position_count - 3) * 0.07
+                ax.plot([x2, x3], [y2, y3],
+                        color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+
+            coords = []
+            if position_count > 0:
+                for pos in range(1, position_count + 1):
+                    frac = pos / max(position_count, 1)
+                    x = side * (0.42 + (branch_len - 0.47) * frac)
+                    py = y + 0.03 + 0.31 * frac + max(0, pos - 3) * 0.025
+                    coords.append((pos, x, py))
 
         # node dots like the supplied reference
         node_colour = "#2E6E35" if node_type == "Vegetative" else "black"
@@ -291,7 +353,7 @@ def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
                             edgecolor="black", zorder=10))
 
         if node_type == "Reproductive":
-            for pos, (x, py) in zip(POSITIONS, coords):
+            for pos, x, py in coords:
                 row = df[(df["Node"] == node) & (df["Position"] == pos)]
                 fruit = row.iloc[0]["Fruit"] if len(row) else "-"
                 if fruit != "-":
@@ -310,7 +372,33 @@ def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
                 fontsize=8, fontweight="bold", color="#1F1F1F",
                 ha="right" if side > 0 else "left", va="center", zorder=11)
 
-    ax.set_title(title, fontsize=17, fontweight="bold", pad=16)
+    ax.set_title(title, fontsize=17, fontweight="bold", pad=40)
+
+    retention_text = (
+        f"{metrics['retention']:.1f}%"
+        if metrics["retention"] is not None else "-"
+    )
+    summary_text = (
+        f"Total Nodes: {metrics['total_nodes']}    "
+        f"Total Positions: {metrics['total_positions']}    "
+        f"Held Positions: {metrics['held_positions']}    "
+        f"Missing Fruit: {metrics['missing_positions']}    "
+        f"Retention: {retention_text}"
+    )
+    ax.text(
+        0.5, 1.015, summary_text,
+        transform=ax.transAxes,
+        ha="center", va="bottom",
+        fontsize=10, fontweight="bold",
+        bbox=dict(
+            boxstyle="round,pad=0.45",
+            facecolor="white",
+            edgecolor="#B7C9CE",
+            alpha=0.96
+        ),
+        zorder=20
+    )
+
     ax.set_xlim(-2.55, 2.55)
     ax.set_ylim(ground_y-0.20, max_node + 1.85)
     ax.axis("off")
@@ -371,8 +459,8 @@ tab1, tab2, tab3 = st.tabs(["Data Entry", "Plant Map", "Summary"])
 with tab1:
     st.subheader("Node × Position Entry")
     st.write(
-        "Each row is one node. Set the node as **Vegetative** or **Reproductive**. "
-        "Reproductive nodes use Positions **1, 2 and 3** across the row, with Position 1 closest to the main stem."
+        "Each row is one node. Set it as **Vegetative** or **Reproductive**, then choose how many fruiting positions that node has. "
+        "You can increase or decrease reproductive nodes from **0 to 6 positions**. Position 1 is closest to the main stem."
     )
 
     edited = st.data_editor(
@@ -390,6 +478,14 @@ with tab1:
                 required=True,
                 width="medium"
             ),
+            "Position Count": st.column_config.NumberColumn(
+                "Positions",
+                min_value=0,
+                max_value=MAX_POSITIONS,
+                step=1,
+                required=True,
+                width="small"
+            ),
             "Position 1": st.column_config.SelectboxColumn(
                 "1", options=FRUIT_TYPES, required=True, width="small"
             ),
@@ -398,6 +494,15 @@ with tab1:
             ),
             "Position 3": st.column_config.SelectboxColumn(
                 "3", options=FRUIT_TYPES, required=True, width="small"
+            ),
+            "Position 4": st.column_config.SelectboxColumn(
+                "4", options=FRUIT_TYPES, required=True, width="small"
+            ),
+            "Position 5": st.column_config.SelectboxColumn(
+                "5", options=FRUIT_TYPES, required=True, width="small"
+            ),
+            "Position 6": st.column_config.SelectboxColumn(
+                "6", options=FRUIT_TYPES, required=True, width="small"
             ),
             "Notes": st.column_config.TextColumn("Notes", width="medium"),
         },
@@ -464,17 +569,26 @@ with tab2:
 
 with tab3:
     long_df = matrix_to_long(st.session_state.plant_matrix)
-    active = long_df[long_df["Fruit"] != "-"].copy()
+    metrics = calculate_metrics(st.session_state.plant_matrix)
+
+    st.markdown("#### Plant totals")
+    total_cols = st.columns(3)
+    total_cols[0].metric("Total Nodes", metrics["total_nodes"])
+    total_cols[1].metric("Total Positions", metrics["total_positions"])
+    total_cols[2].metric("Held Positions", metrics["held_positions"])
+
+    active = long_df[long_df["Fruit"] != "-"].copy() if not long_df.empty else pd.DataFrame(columns=["Fruit"])
     counts = active["Fruit"].value_counts().reindex(
         ["Boll", "Cracked Boll", "Square", "White Flower", "Missing Fruit"], fill_value=0
     )
 
+    st.markdown("#### Fruit counts")
     cols = st.columns(5)
     for col, label in zip(cols, counts.index):
         col.metric(label, int(counts[label]))
 
-    occupied = int(long_df["Fruit"].isin(["Boll", "Cracked Boll", "Square", "White Flower"]).sum())
-    missing = int((long_df["Fruit"] == "Missing Fruit").sum())
+    occupied = metrics["held_positions"]
+    missing = metrics["missing_positions"]
     recorded = occupied + missing
 
 
@@ -482,14 +596,20 @@ with tab3:
     node_counts = st.session_state.plant_matrix["Node Type"].value_counts().reindex(
         ["Vegetative", "Reproductive"], fill_value=0
     )
-    nc1, nc2 = st.columns(2)
+    nc1, nc2, nc3 = st.columns(3)
     nc1.metric("Vegetative Nodes", int(node_counts["Vegetative"]))
     nc2.metric("Reproductive Nodes", int(node_counts["Reproductive"]))
+    reproductive_nodes = int(node_counts["Reproductive"])
+    avg_positions = (
+        metrics["total_positions"] / reproductive_nodes
+        if reproductive_nodes else 0
+    )
+    nc3.metric("Avg Positions / Reproductive Node", f"{avg_positions:.1f}")
 
     summary_df = pd.DataFrame({
         "Metric": [
             "Recorded fruiting sites",
-            "Occupied fruiting sites",
+            "Held positions",
             "Missing fruit",
             "Retention of recorded sites",
         ],

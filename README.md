@@ -1,15 +1,14 @@
-# Cotton Plant Mapper v5
+# Cotton Plant Mapper v7
 
-Adds **Node Type** classification.
+Adds the following key totals to both the dashboard and exported PDF:
 
-Each node can now be set as:
-- Vegetative
-- Reproductive
+- **Total Nodes**
+- **Total Positions**
+- **Held Positions**
 
-Reproductive nodes show fruiting branches and Positions 1, 2 and 3.
-Vegetative nodes show a shorter vegetative branch and leaf without fruiting positions.
+**Held Positions** counts mapped positions currently holding a Boll, Cracked Boll, Square or White Flower. Missing fruit is not counted as held.
 
-The plant map labels nodes with **V** or **R**, and the summary reports counts of each node type.
+The PDF summary strip also shows Missing Fruit and Retention for quick reporting.
 
 ## Run
 ```bash
