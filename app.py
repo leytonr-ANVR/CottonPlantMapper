@@ -301,6 +301,108 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
     fig.tight_layout(pad=.05)
     return fig
 
+
+def make_pdf_report(df, min_node, max_node, show_labels=True):
+    """Clean portrait PDF styled like the supplied cotton_plant_map (7).pdf."""
+    # A4-ish portrait ratio, with the plant occupying most of the page.
+    fig, ax = plt.subplots(figsize=(8.27, 11.69))
+    ax.set_facecolor('white')
+
+    ground = min_node - 1.08
+    stem_top = max_node + .72
+
+    # Main stem / ground / base.
+    ax.plot([0, 0], [ground, stem_top], color='#008b43', lw=4.5,
+            solid_capstyle='round', zorder=2)
+    ax.plot([-2.38, 2.38], [ground, ground], color='#9c5a13', lw=5.2,
+            solid_capstyle='round', zorder=1)
+    ax.add_patch(Polygon([(-.21, ground), (0, ground+.30), (.21, ground)],
+                         closed=True, facecolor='#008b43', edgecolor='#008b43', zorder=3))
+
+    # Terminal fork only - no large heading or report block.
+    ax.plot([0, -.15], [stem_top-.02, stem_top+.23], color='#41a63b', lw=2.6)
+    ax.plot([0, .15], [stem_top-.02, stem_top+.23], color='#41a63b', lw=2.6)
+
+    for node in range(min_node, max_node + 1):
+        row_df = df[df['Node'] == node]
+        if row_df.empty:
+            continue
+        row = row_df.iloc[0]
+        ntype = row['Node Type']
+        side = -1 if node % 2 else 1
+        y = node
+        count = int(row['Position Count'])
+
+        # Large clean node number close to the stem, as in the supplied PDF.
+        ax.text(-.08 if side > 0 else .08, y, str(node),
+                fontsize=10.8, fontweight='bold', color='#151515',
+                ha='right' if side > 0 else 'left', va='center', zorder=20)
+
+        if ntype == 'Vegetative':
+            branch_len = .92
+            end_x = side * branch_len
+            ax.plot([0, side*.40, end_x], [y, y+.01, y+.20],
+                    color='#008b43', lw=2.8, solid_capstyle='round', zorder=3)
+            # One simple terminal leaf, matching the lower-node style in the example.
+            ax.add_patch(Ellipse((end_x + side*.13, y+.22), .30, .13,
+                                 angle=17*side, facecolor='#62ae45',
+                                 edgecolor='#3d8937', lw=.6, zorder=4))
+            continue
+
+        # Last non-dash position determines branch length.
+        effective = 0
+        for p in range(1, count + 1):
+            if row[f'Position {p}'] != '-':
+                effective = p
+        draw_count = max(effective, 1 if count else 0)
+
+        if ntype == 'Vegetative Lateral':
+            branch_len = 1.18 + max(0, draw_count - 1) * .44
+            end_x = side * branch_len
+            end_y = y - .34 - max(0, draw_count - 2) * .04
+            ax.plot([0, side*.50, end_x], [y, y-.12, end_y],
+                    color='#008b43', lw=2.9, solid_capstyle='round', zorder=3)
+            coords = []
+            if effective > 0:
+                for p in range(1, effective + 1):
+                    frac = p / (effective + 1)
+                    x = side * (.30 + (branch_len - .30) * frac)
+                    py = y - .06 - .26 * frac
+                    coords.append((p, x, py))
+        else:
+            # Reproductive branch: almost horizontal with a gentle outward rise.
+            branch_len = .80 + max(0, draw_count - 1) * .52
+            first_x = side * min(.52, branch_len)
+            end_x = side * branch_len
+            end_y = y + (.08 if draw_count <= 1 else .17)
+            ax.plot([0, first_x, end_x], [y, y+.01, end_y],
+                    color='#008b43', lw=2.9, solid_capstyle='round', zorder=3)
+
+            coords = []
+            if effective > 0:
+                for p in range(1, effective + 1):
+                    frac = 1.0 if effective == 1 else (p-1)/(effective-1)
+                    x = side * (.50 + (branch_len - .50) * frac)
+                    py = y + .025 + (end_y - y - .025) * frac
+                    coords.append((p, x, py))
+
+        for p, x, py in coords:
+            fruit = row[f'Position {p}']
+            # The supplied PDF has only the active fruit visible, not empty circles.
+            if fruit != '-':
+                draw_symbol(ax, x, py, fruit, .145)
+            if show_labels:
+                ax.text(x + (.07 if side > 0 else -.07), py + .10,
+                        f'{node}-{p}', fontsize=7.0, color='#68717b',
+                        ha='left' if side > 0 else 'right', va='bottom', zorder=15)
+
+    # Tight portrait framing: plant fills the page vertically with clean white margins.
+    ax.set_xlim(-2.55, 2.55)
+    ax.set_ylim(ground-.14, stem_top+.38)
+    ax.axis('off')
+    fig.subplots_adjust(left=.035, right=.965, top=.985, bottom=.025)
+    return fig
+
 def legend_figure():
     fig, ax = plt.subplots(figsize=(2.7,3.45))
     ax.set_xlim(0,3.1); ax.set_ylim(0,6.5); ax.axis("off")
@@ -584,9 +686,18 @@ with left:
 with centre:
     fig = make_map(st.session_state.plant_matrix, min_node, max_node, show_labels, show_positions, show_ground)
     png = fig_bytes(fig, "png")
-    pdf = fig_bytes(fig, "pdf")
     interactive_map(png, height=590 if compact else 660)
     plt.close(fig)
+
+    # Dedicated portrait PDF export matching the supplied reference layout.
+    pdf_fig = make_pdf_report(
+        st.session_state.plant_matrix,
+        min_node,
+        max_node,
+        show_labels=True,
+    )
+    pdf = fig_bytes(pdf_fig, "pdf")
+    plt.close(pdf_fig)
 
     with pdf_slot.container():
         st.download_button("⇩ Export PDF", data=pdf, file_name="cotton_plant_map.pdf", mime="application/pdf", use_container_width=True)

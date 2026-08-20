@@ -1,13 +1,17 @@
-# Cotton Plant Mapper v26
+# Cotton Plant Mapper v27
 
-Position-column controls updated.
+PDF export redesigned to match the supplied cotton_plant_map (7).pdf.
 
-The two buttons below Node Entry now control **position columns**, not nodes:
+PDF changes:
+- clean portrait page
+- plant occupies almost the full page
+- no dashboard/header clutter
+- slim upright green main stem
+- alternating reproductive branches
+- simple vegetative branches on lower nodes
+- node numbers close to the stem
+- position labels next to active fruit
+- brown ground line at the bottom
+- terminal fork at the top
 
-- **Add Position Column** adds the next position column across every node, up to Position 6.
-- **Remove Position Column** removes the last visible position column across every node and clears that removed position from the map/data.
-- Reproductive and Vegetative Lateral nodes automatically use the current number of visible position columns.
-- Vegetative nodes remain at 0 fruiting positions.
-- Clear Map resets the entry grid to Position 1–3.
-
-The Max Nodes field at the top remains the control for changing the number of nodes.
+The web preview remains interactive with Zoom In, Zoom Out and Fit.
