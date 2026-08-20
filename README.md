@@ -1,9 +1,12 @@
-# Cotton Plant Mapper v30
+# Cotton Plant Mapper v31
 
-Node Data Entry Type dropdown updated to use compact node-type symbols based on the supplied reference:
+Bug fix for Streamlit Cloud NameError in `interactive_map()`.
 
-- 🟢 R — Reproductive
-- 🔵 V — Vegetative
-- 🟠 VL — Vegetative Lateral
+Cause:
+A CSS rule for the R / V / VL node-type dropdown was accidentally inserted inside an HTML f-string using normal `{ }` CSS braces. Python treated the CSS as an f-string expression and raised a NameError at `font-weight:700`.
 
-The dropdown remains editable for every individual node.
+Fix:
+- removed the CSS rule from the interactive map iframe
+- moved it into the main Streamlit CSS section
+- validated the app with Python `compile()` before packaging
+- Zoom In, Zoom Out and Fit remain unchanged

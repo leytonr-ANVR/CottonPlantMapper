@@ -511,11 +511,6 @@ def interactive_map(png_bytes, height=610):
       button.fit{{width:42px;}}
       .viewport{{height:{height-48}px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:white;position:relative;}}
       #mapimg{{max-width:96%;max-height:96%;object-fit:contain;transform-origin:center center;transition:transform .12s ease;user-select:none;}}
-    
-/* Compact Node Type dropdown: R / V / VL badge-style display */
-[data-testid="stSelectbox"] [data-baseweb="select"] > div{
-    font-weight:700;
-}
 </style>
     </head>
     <body>
@@ -574,6 +569,11 @@ html,body,[class*="css"]{font-size:14px}
 .node-label{padding-top:9px;text-align:center;font-weight:800;color:#17395f}
 .legend-card{border:1px solid var(--border);border-radius:12px;background:#fff;padding:8px}
 hr{margin:.4rem 0!important}
+
+/* Compact Node Type dropdown: R / V / VL badge-style display */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div{
+    font-weight:700;
+}
 </style>
 """, unsafe_allow_html=True)
 
