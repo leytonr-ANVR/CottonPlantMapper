@@ -406,6 +406,8 @@ if "lowest_node" not in st.session_state:
     st.session_state.lowest_node = 1
 if "max_node" not in st.session_state:
     st.session_state.max_node = 22
+if "visible_position_columns" not in st.session_state:
+    st.session_state.visible_position_columns = 3
 
 logo = Path(__file__).with_name("agnvet_rural_logo.png")
 h1,h2,h3 = st.columns([1.05,2.9,2.45], vertical_alignment="center")
@@ -437,6 +439,7 @@ st.session_state.plant_matrix = normalise(st.session_state.plant_matrix, min_nod
 
 if clear_clicked:
     st.session_state.plant_matrix = blank_matrix(min_node, max_node)
+    st.session_state.visible_position_columns = 3
     for key in list(st.session_state.keys()):
         if key.startswith("type_") or key.startswith("pos_"):
             del st.session_state[key]
@@ -457,15 +460,28 @@ with left:
         tr.markdown('<div class="type-strip type-r">R &nbsp; Reproductive</div>', unsafe_allow_html=True)
         tvl.markdown('<div class="type-strip type-vl">VL &nbsp; Vegetative Lateral</div>', unsafe_allow_html=True)
 
-        header = st.columns([.38,1.08,1.22,1.08,1.08], gap="small")
-        for col, txt in zip(header, ["Node","Type","Pos 1","Pos 2","Pos 3"]):
-            col.markdown(f"<div style='text-align:center;font-size:11px;font-weight:700;color:#17395f'>{txt}</div>", unsafe_allow_html=True)
+        visible_positions = int(st.session_state.visible_position_columns)
+        visible_positions = max(1, min(MAX_POSITIONS, visible_positions))
+
+        # Dynamic header: Node, Type, then however many position columns are enabled.
+        header_weights = [.38, 1.08] + [1.08] * visible_positions
+        header = st.columns(header_weights, gap="small")
+        header[0].markdown("<div style='text-align:center;font-size:11px;font-weight:700;color:#17395f'>Node</div>", unsafe_allow_html=True)
+        header[1].markdown("<div style='text-align:center;font-size:11px;font-weight:700;color:#17395f'>Type</div>", unsafe_allow_html=True)
+        for p in range(1, visible_positions + 1):
+            header[p + 1].markdown(
+                f"<div style='text-align:center;font-size:11px;font-weight:700;color:#17395f'>Pos {p}</div>",
+                unsafe_allow_html=True
+            )
         st.divider()
 
         df_edit = st.session_state.plant_matrix.copy()
         for idx,row in df_edit.sort_values("Node", ascending=False).iterrows():
             node = int(row["Node"])
-            cnode,ctype,cp1,cp2,cp3 = st.columns([.38,1.08,1.22,1.08,1.08], gap="small")
+            row_cols = st.columns(header_weights, gap="small")
+            cnode = row_cols[0]
+            ctype = row_cols[1]
+            position_cols = row_cols[2:]
 
             cnode.markdown(f'<div class="node-label">{node}</div>', unsafe_allow_html=True)
 
@@ -483,15 +499,15 @@ with left:
                 df_edit.loc[df_edit["Node"] == node, "Node Type"] = new_type
                 if new_type == "Vegetative":
                     df_edit.loc[df_edit["Node"] == node, "Position Count"] = 0
-                    for p in range(1,MAX_POSITIONS+1):
+                    for p in range(1, MAX_POSITIONS + 1):
                         df_edit.loc[df_edit["Node"] == node, f"Position {p}"] = "-"
                 else:
                     if int(row["Position Count"]) == 0:
-                        df_edit.loc[df_edit["Node"] == node, "Position Count"] = 3
+                        df_edit.loc[df_edit["Node"] == node, "Position Count"] = visible_positions
                     if new_type == "Reproductive" and row["Position 1"] == "-":
                         df_edit.loc[df_edit["Node"] == node, "Position 1"] = "Square"
 
-            for p,col in zip([1,2,3],[cp1,cp2,cp3]):
+            for p, col in enumerate(position_cols, start=1):
                 cur = df_edit.loc[df_edit["Node"] == node, f"Position {p}"].iloc[0]
                 val = col.selectbox(
                     f"Node {node} Pos {p}",
@@ -504,23 +520,44 @@ with left:
                 df_edit.loc[df_edit["Node"] == node, f"Position {p}"] = val
 
             if new_type != "Vegetative":
-                last_active = 0
-                for p in range(1,MAX_POSITIONS+1):
-                    if df_edit.loc[df_edit["Node"] == node, f"Position {p}"].iloc[0] != "-":
-                        last_active = p
-                current_count = int(df_edit.loc[df_edit["Node"] == node, "Position Count"].iloc[0])
-                df_edit.loc[df_edit["Node"] == node, "Position Count"] = max(current_count, last_active, 1)
+                # Position Count follows the number of displayed position columns.
+                df_edit.loc[df_edit["Node"] == node, "Position Count"] = visible_positions
 
         st.session_state.plant_matrix = normalise(df_edit, min_node, max_node)
 
         b1,b2,b3 = st.columns(3)
-        if b1.button(f"＋ Add Node Below {max_node}", use_container_width=True):
-            st.session_state.max_node = min(60, max_node + 1)
+        if b1.button(
+            f"＋ Add Position Column ({visible_positions}/{MAX_POSITIONS})",
+            use_container_width=True,
+            disabled=visible_positions >= MAX_POSITIONS
+        ):
+            st.session_state.visible_position_columns = min(MAX_POSITIONS, visible_positions + 1)
+            # Increase Position Count for fruiting node types.
+            df = st.session_state.plant_matrix.copy()
+            df.loc[df["Node Type"] != "Vegetative", "Position Count"] = st.session_state.visible_position_columns
+            st.session_state.plant_matrix = df
             st.rerun()
-        if b2.button("− Remove Last Node", use_container_width=True):
-            if max_node > min_node:
-                st.session_state.max_node = max(min_node, max_node - 1)
-                st.rerun()
+
+        if b2.button(
+            f"− Remove Position Column",
+            use_container_width=True,
+            disabled=visible_positions <= 1
+        ):
+            removed_position = visible_positions
+            st.session_state.visible_position_columns = max(1, visible_positions - 1)
+            df = st.session_state.plant_matrix.copy()
+            # Clear the removed column so it no longer affects the map or metrics.
+            df[f"Position {removed_position}"] = "-"
+            df.loc[df["Node Type"] != "Vegetative", "Position Count"] = st.session_state.visible_position_columns
+            st.session_state.plant_matrix = df
+
+            # Remove stale widget state for the hidden column.
+            for node_id in df["Node"].tolist():
+                key = f"pos_{int(node_id)}_{removed_position}"
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
+
         if b3.button("🪄 Auto Fill", use_container_width=True):
             df = st.session_state.plant_matrix.copy()
             for i,r in df.iterrows():
