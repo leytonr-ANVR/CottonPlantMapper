@@ -1,14 +1,13 @@
-# Cotton Plant Mapper v7
+# Cotton Plant Mapper v8
 
-Adds the following key totals to both the dashboard and exported PDF:
+Updated the plant-map symbols to more closely match the supplied cotton growth-stage illustration.
 
-- **Total Nodes**
-- **Total Positions**
-- **Held Positions**
+### Updated symbols
+- **Boll** — closed green boll with rounded locks and pointed bracts
+- **White Flower** — broad white/pale-pink flower with green bracts
+- **Square** — compact green bud with pointed bracts
 
-**Held Positions** counts mapped positions currently holding a Boll, Cracked Boll, Square or White Flower. Missing fruit is not counted as held.
-
-The PDF summary strip also shows Missing Fruit and Retention for quick reporting.
+Cracked Boll remains a separate option.
 
 ## Run
 ```bash

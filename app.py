@@ -120,73 +120,124 @@ def calculate_metrics(matrix_df):
 # ---------- Cotton-style fruit symbols ----------
 
 def draw_square(ax, x, y, scale=0.12):
-    # Green square/bud with three bracts.
-    ax.add_patch(Circle((x, y), scale*0.62, facecolor="#6BAE3E",
-                        edgecolor="#3F7F28", lw=1.0, zorder=8))
-    for ang in [90, 210, 330]:
+    # Cotton square: compact green bud surrounded by pointed bracts.
+    ax.add_patch(Ellipse(
+        (x, y), scale*0.78, scale*0.92,
+        facecolor="#63A936", edgecolor="#3F7F28", lw=0.9, zorder=8
+    ))
+    for ang in [55, 90, 125, 205, 270, 335]:
         a = np.deg2rad(ang)
-        px = x + np.cos(a)*scale*0.58
-        py = y + np.sin(a)*scale*0.58
-        left = (x + np.cos(a+0.55)*scale*1.15,
-                y + np.sin(a+0.55)*scale*1.15)
-        right = (x + np.cos(a-0.55)*scale*1.15,
-                 y + np.sin(a-0.55)*scale*1.15)
-        tip = (x + np.cos(a)*scale*1.32,
-               y + np.sin(a)*scale*1.32)
-        ax.add_patch(Polygon([left, tip, right], closed=True,
-                             facecolor="#62A93A", edgecolor="#3F7F28",
-                             lw=0.7, zorder=7))
+        base_l = (
+            x + np.cos(a + 0.28) * scale * 0.38,
+            y + np.sin(a + 0.28) * scale * 0.40
+        )
+        base_r = (
+            x + np.cos(a - 0.28) * scale * 0.38,
+            y + np.sin(a - 0.28) * scale * 0.40
+        )
+        tip = (
+            x + np.cos(a) * scale * 1.15,
+            y + np.sin(a) * scale * 1.18
+        )
+        ax.add_patch(Polygon(
+            [base_l, tip, base_r], closed=True,
+            facecolor="#4E9A31", edgecolor="#347326", lw=0.55, zorder=9
+        ))
 
 def draw_white_flower(ax, x, y, scale=0.16):
-    # Five soft white petals with a light pink centre.
-    for ang in np.linspace(0, 360, 5, endpoint=False):
+    # Broad white cotton flower with a soft pink centre and green bracts.
+    for ang in [18, 90, 162, 234, 306]:
         a = np.deg2rad(ang)
-        px = x + np.cos(a)*scale*0.55
-        py = y + np.sin(a)*scale*0.55
-        ax.add_patch(Ellipse((px, py), scale*1.05, scale*0.72,
-                             angle=ang, facecolor="white",
-                             edgecolor="#E8E8E8", lw=0.9, zorder=8))
-    ax.add_patch(Circle((x, y), scale*0.28, facecolor="#F7D6D8",
-                        edgecolor="#D9A8AE", lw=0.7, zorder=9))
-    # Green bracts beneath flower
-    for ang in [205, 270, 335]:
+        px = x + np.cos(a) * scale * 0.46
+        py = y + np.sin(a) * scale * 0.42
+        ax.add_patch(Ellipse(
+            (px, py),
+            scale*1.20, scale*0.90,
+            angle=ang,
+            facecolor="#FFFDFD",
+            edgecolor="#F0DDE2",
+            lw=0.8, zorder=9
+        ))
+    ax.add_patch(Circle(
+        (x, y), scale*0.30,
+        facecolor="#F6D5DB", edgecolor="#DCAEB7", lw=0.7, zorder=10
+    ))
+
+    # Large pointed bracts around the base, like the supplied cotton illustration.
+    for ang in [190, 220, 250, 285, 320, 350]:
         a = np.deg2rad(ang)
-        tip = (x + np.cos(a)*scale*1.05,
-               y + np.sin(a)*scale*1.05)
-        l = (x + np.cos(a+0.35)*scale*0.35,
-             y + np.sin(a+0.35)*scale*0.35)
-        r = (x + np.cos(a-0.35)*scale*0.35,
-             y + np.sin(a-0.35)*scale*0.35)
-        ax.add_patch(Polygon([l, tip, r], closed=True,
-                             facecolor="#5FA237", edgecolor="#417A2A",
-                             lw=0.6, zorder=7))
+        l = (
+            x + np.cos(a + 0.18) * scale * 0.34,
+            y + np.sin(a + 0.18) * scale * 0.32
+        )
+        r = (
+            x + np.cos(a - 0.18) * scale * 0.34,
+            y + np.sin(a - 0.18) * scale * 0.32
+        )
+        tip = (
+            x + np.cos(a) * scale * 1.20,
+            y + np.sin(a) * scale * 1.08
+        )
+        ax.add_patch(Polygon(
+            [l, tip, r], closed=True,
+            facecolor="#4E9B32", edgecolor="#347526", lw=0.6, zorder=8
+        ))
 
 def draw_boll(ax, x, y, scale=0.15):
-    # Open cotton boll: brown base, white cotton locks.
-    ax.plot([x, x], [y-scale*1.35, y-scale*0.65],
-            color="#6A3D1F", lw=1.5, zorder=6)
-    for dx, dy, s in [
-        (-0.42, 0.08, 0.72),
-        (0.00, 0.25, 0.82),
-        (0.42, 0.08, 0.72),
-        (-0.18, -0.20, 0.68),
-        (0.20, -0.20, 0.68),
-    ]:
-        ax.add_patch(Circle((x+dx*scale, y+dy*scale),
-                            scale*s, facecolor="white",
-                            edgecolor="#D7D7D7", lw=0.8, zorder=9))
-    for ang in [210, 270, 330]:
-        a = np.deg2rad(ang)
-        tip = (x + np.cos(a)*scale*1.25,
-               y + np.sin(a)*scale*1.05)
-        l = (x + np.cos(a+0.25)*scale*0.38,
-             y + np.sin(a+0.25)*scale*0.30)
-        r = (x + np.cos(a-0.25)*scale*0.38,
-             y + np.sin(a-0.25)*scale*0.30)
-        ax.add_patch(Polygon([l, tip, r], closed=True,
-                             facecolor="#8B4D22", edgecolor="#653515",
-                             lw=0.7, zorder=8))
+    # Closed green cotton boll with several rounded locks and pointed bracts.
+    ax.plot(
+        [x, x - scale*0.12],
+        [y - scale*1.20, y - scale*0.58],
+        color="#4A8B31", lw=1.7, zorder=6
+    )
 
+    # Boll locks / lobes
+    lobes = [
+        (-0.30, 0.05, 0.72, 1.00, -16),
+        (0.00, 0.15, 0.76, 1.10, 0),
+        (0.30, 0.05, 0.72, 1.00, 16),
+    ]
+    for dx, dy, w, h, angle in lobes:
+        ax.add_patch(Ellipse(
+            (x + dx*scale, y + dy*scale),
+            scale*w, scale*h,
+            angle=angle,
+            facecolor="#6BAF3B", edgecolor="#4A8A2E",
+            lw=0.8, zorder=8
+        ))
+
+    # Fine lock seams
+    ax.plot(
+        [x, x - scale*0.18],
+        [y + scale*0.52, y - scale*0.30],
+        color="#4E8D31", lw=0.7, zorder=9
+    )
+    ax.plot(
+        [x, x + scale*0.18],
+        [y + scale*0.52, y - scale*0.30],
+        color="#4E8D31", lw=0.7, zorder=9
+    )
+
+    # Tall pointed bracts wrapping around the boll.
+    for ang in [55, 82, 108, 132, 205, 270, 335]:
+        a = np.deg2rad(ang)
+        l = (
+            x + np.cos(a + 0.18) * scale * 0.40,
+            y + np.sin(a + 0.18) * scale * 0.38
+        )
+        r = (
+            x + np.cos(a - 0.18) * scale * 0.40,
+            y + np.sin(a - 0.18) * scale * 0.38
+        )
+        tip = (
+            x + np.cos(a) * scale * 1.22,
+            y + np.sin(a) * scale * 1.28
+        )
+        ax.add_patch(Polygon(
+            [l, tip, r], closed=True,
+            facecolor="#4D9631", edgecolor="#347326",
+            lw=0.55, zorder=10
+        ))
 
 def draw_cracked_boll(ax, x, y, scale=0.15):
     # Partially opened / cracked boll: green-brown boll with white cotton showing.
