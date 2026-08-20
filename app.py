@@ -13,6 +13,21 @@ FRUIT_TYPES = ["-", "Boll", "Cracked Boll", "Square", "White Flower", "Missing F
 NODE_TYPES = ["Vegetative", "Reproductive", "Vegetative Lateral"]
 MAX_POSITIONS = 6
 
+FRUIT_DISPLAY = {
+    "-": "—",
+    "Boll": "🌿 Boll",
+    "Cracked Boll": "◐ Cracked Boll",
+    "Square": "🟩 Square",
+    "White Flower": "🌸 White Flower",
+    "Missing Fruit": "◌ Missing Fruit",
+}
+
+TYPE_SHORT = {
+    "Vegetative": "V",
+    "Reproductive": "R",
+    "Vegetative Lateral": "VL",
+}
+
 def blank_matrix(min_node=1, max_node=22):
     nodes = list(range(min_node, max_node + 1))
     d = {
@@ -311,6 +326,56 @@ div[data-testid="stPyplot"] img{
   .metric-value{font-size:20px}
   .stButton>button,.stDownloadButton>button{font-size:12px}
 }
+
+.node-head{
+  display:grid;
+  grid-template-columns:42px 48px 1fr 1fr 1fr;
+  gap:6px;
+  align-items:center;
+  padding:5px 6px 3px;
+  border-bottom:1px solid #dfe7ee;
+  color:#17395f;
+  font-size:12px;
+  font-weight:700;
+  text-align:center;
+}
+.node-row{
+  display:grid;
+  grid-template-columns:42px 48px 1fr 1fr 1fr;
+  gap:6px;
+  align-items:center;
+  padding:4px 6px;
+  border-bottom:1px solid #edf2f6;
+}
+.node-num{
+  text-align:center;
+  font-weight:700;
+  color:#132f52;
+}
+.type-pill{
+  margin:auto;
+  width:30px;
+  height:28px;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:13px;
+}
+.type-r{background:#e8f6ed;color:#19833e}
+.type-v{background:#eaf2ff;color:#2b6fc5}
+.type-vl{background:#fff0e8;color:#ef6c21}
+.compact-entry [data-testid="stSelectbox"] label{display:none}
+.compact-entry [data-baseweb="select"]>div{
+  min-height:34px!important;
+  height:34px!important;
+  font-size:12px!important;
+}
+.compact-entry [data-testid="stSelectbox"]{
+  margin-bottom:0!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -345,19 +410,90 @@ with left:
     t1,t2,t3=st.tabs(["📋 Data Entry","☷ Summary","⚙ Settings"])
     with t1:
         st.markdown("### Node Entry")
-        a,b,c=st.columns(3); a.info("**V Vegetative**"); b.success("**R Reproductive**"); c.warning("**VL Vegetative Lateral**")
-        edited=st.data_editor(
-            st.session_state.plant_matrix,use_container_width=True,hide_index=True,height=455,
-            column_config={
-                "Node":st.column_config.NumberColumn("Node",disabled=True),
-                "Node Type":st.column_config.SelectboxColumn("Type",options=NODE_TYPES),
-                "Position Count":st.column_config.NumberColumn("Positions",min_value=0,max_value=6,step=1),
-                **{f"Position {p}":st.column_config.SelectboxColumn(f"Pos {p}",options=FRUIT_TYPES) for p in range(1,7)}
-            },
-            column_order=["Node","Node Type","Position 1","Position 2","Position 3","Position Count","Position 4","Position 5","Position 6","Notes"],
-            key="editor"
+
+        # Node type selector strip styled like the supplied reference.
+        a,b,c=st.columns(3)
+        a.markdown('<div style="border:1px solid #cfe0f7;background:#eef5ff;border-radius:8px;padding:8px;text-align:center;color:#1f65b5;font-weight:700;">V &nbsp; Vegetative</div>', unsafe_allow_html=True)
+        b.markdown('<div style="border:1px solid #bfe3cb;background:#eefaf2;border-radius:8px;padding:8px;text-align:center;color:#19833e;font-weight:700;">R &nbsp; Reproductive</div>', unsafe_allow_html=True)
+        c.markdown('<div style="border:1px solid #ffd5c0;background:#fff5ef;border-radius:8px;padding:8px;text-align:center;color:#ef6c21;font-weight:700;">VL &nbsp; Vegetative Lateral</div>', unsafe_allow_html=True)
+
+        st.markdown(
+            '<div class="node-head"><div>Node</div><div>Type</div><div>Pos 1</div><div>Pos 2</div><div>Pos 3</div></div>',
+            unsafe_allow_html=True
         )
-        st.session_state.plant_matrix=normalize_matrix(edited,int(min_node),int(max_node))
+
+        df_edit = st.session_state.plant_matrix.copy()
+        display_df = df_edit.sort_values("Node", ascending=False)
+
+        st.markdown('<div class="compact-entry">', unsafe_allow_html=True)
+
+        for idx, row in display_df.iterrows():
+            node = int(row["Node"])
+            cnode, ctype, cp1, cp2, cp3 = st.columns([0.42, 0.48, 1.20, 1.05, 1.05], gap="small")
+
+            with cnode:
+                st.markdown(
+                    f'<div class="node-num" style="padding-top:9px;">{node}</div>',
+                    unsafe_allow_html=True
+                )
+
+            with ctype:
+                current_type = row["Node Type"]
+                pill_class = "type-v" if current_type == "Vegetative" else ("type-vl" if current_type == "Vegetative Lateral" else "type-r")
+                st.markdown(
+                    f'<div class="type-pill {pill_class}">{TYPE_SHORT[current_type]}</div>',
+                    unsafe_allow_html=True
+                )
+
+            # Keep row interaction compact: each visible position is a dropdown.
+            visible_positions = []
+            for p, col in zip([1,2,3], [cp1,cp2,cp3]):
+                with col:
+                    current = row[f"Position {p}"]
+                    new_value = st.selectbox(
+                        f"Node {node} Pos {p}",
+                        options=FRUIT_TYPES,
+                        index=FRUIT_TYPES.index(current) if current in FRUIT_TYPES else 0,
+                        format_func=lambda x: FRUIT_DISPLAY[x],
+                        key=f"node_{node}_pos_{p}",
+                        label_visibility="collapsed"
+                    )
+                    visible_positions.append(new_value)
+
+            # Apply visible position edits.
+            for p, val in zip([1,2,3], visible_positions):
+                df_edit.loc[df_edit["Node"] == node, f"Position {p}"] = val
+
+            # Automatically keep Position Count aligned with the last visible active position,
+            # without removing access to positions 4-6 elsewhere in the data model.
+            visible_last = 0
+            for p in [1,2,3]:
+                if df_edit.loc[df_edit["Node"] == node, f"Position {p}"].iloc[0] != "-":
+                    visible_last = p
+
+            current_count = int(df_edit.loc[df_edit["Node"] == node, "Position Count"].iloc[0])
+            if row["Node Type"] == "Vegetative":
+                df_edit.loc[df_edit["Node"] == node, "Position Count"] = 0
+            elif visible_last > current_count:
+                df_edit.loc[df_edit["Node"] == node, "Position Count"] = visible_last
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.session_state.plant_matrix = normalize_matrix(df_edit, int(min_node), int(max_node))
+
+        b1,b2,b3 = st.columns(3)
+        if b1.button(f"＋ Add Node Below {int(st.session_state.plant_matrix['Node'].max())}", use_container_width=True):
+            st.info("Increase **Max Nodes** above to add another node.")
+        if b2.button("− Remove Last Node", use_container_width=True):
+            st.info("Reduce **Max Nodes** above to remove the last node.")
+        if b3.button("🪄 Auto Fill", use_container_width=True):
+            df = st.session_state.plant_matrix.copy()
+            for i,row in df.iterrows():
+                if row["Node Type"] == "Reproductive" and int(row["Position Count"]) > 0 and row["Position 1"] == "-":
+                    df.at[i,"Position 1"] = "Square"
+            st.session_state.plant_matrix = df
+            st.rerun()
+
     with t2:
         m=calculate_metrics(st.session_state.plant_matrix)
         st.metric("Total Nodes",m["total_nodes"]); st.metric("Total Positions",m["total_positions"])

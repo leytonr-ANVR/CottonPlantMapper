@@ -1,12 +1,10 @@
-# Cotton Plant Mapper v18
+# Cotton Plant Mapper v19
 
-Website scaling update.
+Node Data Entry has been redesigned to match the supplied compact layout:
 
-Changes include:
-- fixed, viewport-friendly plant-map height
-- narrower overall page width with responsive desktop scaling
-- reduced header and report-row height
-- shorter legend panel
-- better left/map/right column proportions
-- reduced data-entry table height
-- responsive font and button sizing for smaller laptops
+- Nodes displayed highest-to-lowest
+- Compact V / R / VL type badges
+- Only Node, Type, Pos 1, Pos 2 and Pos 3 shown in the main entry grid
+- Fruit choices shown as compact dropdowns with symbols
+- Add Node, Remove Last Node and Auto Fill buttons aligned across the bottom
+- Existing positions 4–6 remain in the underlying data model for advanced use
