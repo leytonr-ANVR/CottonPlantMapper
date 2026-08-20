@@ -381,35 +381,50 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
             ))
             coords = []
         else:
-            # Reproductive node: draw fruiting branch with three positions.
-            branch_len = 1.45 + (0.42 if node < min_node + n_nodes*0.45 else 0.10)
-            x0 = 0.0
-            x1 = side * 0.52
-            x2 = side * 1.05
-            x3 = side * branch_len
-            y1 = y + 0.03
-            y2 = y + 0.20
-            y3 = y + 0.34
-            ax.plot([x0, x1, x2, x3], [y, y1, y2, y3],
-                    color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
-
+            # Reproductive node: branch length is calculated from positions in use.
+            branch_len = 1.45
             position_count = int(node_row.iloc[0]["Position Count"]) if len(node_row) else 3
             position_count = max(0, min(MAX_POSITIONS, position_count))
 
-            # Lengthen the branch when more positions are selected.
-            if position_count > 3:
-                branch_len += (position_count - 3) * 0.34
-                x3 = side * branch_len
-                y3 = y + 0.34 + (position_count - 3) * 0.07
-                ax.plot([x2, x3], [y2, y3],
+            # Diagram branch length follows the last position that is actually in use.
+            # A trailing "-" means that fruiting position is not present, so the branch
+            # stops before it instead of drawing the full selected Position Count.
+            effective_position_count = 0
+            if len(node_row):
+                for pos in range(1, position_count + 1):
+                    if node_row.iloc[0].get(f"Position {pos}", "-") != "-":
+                        effective_position_count = pos
+
+            # Redraw the reproductive branch to match the actual used positions.
+            if effective_position_count == 0:
+                branch_len = 0.52
+                ax.plot([0, side * branch_len], [y, y + 0.05],
                         color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+            else:
+                branch_len = 0.62 + max(0, effective_position_count - 1) * 0.43
+                x1 = side * min(0.52, branch_len)
+                x2 = side * min(1.05, branch_len)
+                x3 = side * branch_len
+                y1 = y + 0.03
+                y2 = y + 0.18
+                y3 = y + 0.18 + max(0, effective_position_count - 2) * 0.07
+
+                if effective_position_count == 1:
+                    ax.plot([0, x3], [y, y + 0.06],
+                            color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+                elif effective_position_count == 2:
+                    ax.plot([0, x1, x3], [y, y1, y + 0.18],
+                            color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
+                else:
+                    ax.plot([0, x1, x2, x3], [y, y1, y2, y3],
+                            color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
 
             coords = []
-            if position_count > 0:
-                for pos in range(1, position_count + 1):
-                    frac = pos / max(position_count, 1)
-                    x = side * (0.42 + (branch_len - 0.47) * frac)
-                    py = y + 0.03 + 0.31 * frac + max(0, pos - 3) * 0.025
+            if effective_position_count > 0:
+                for pos in range(1, effective_position_count + 1):
+                    frac = pos / max(effective_position_count, 1)
+                    x = side * (0.34 + (branch_len - 0.34) * frac)
+                    py = y + 0.03 + 0.25 * frac + max(0, pos - 3) * 0.025
                     coords.append((pos, x, py))
 
         # node dots like the supplied reference

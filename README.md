@@ -1,9 +1,8 @@
-# Cotton Plant Mapper v13
+# Cotton Plant Mapper v14
 
-Updated default reproductive-node fruiting data:
+Updated plant diagram behaviour:
 
-- Nodes 1–7 default to Vegetative with 0 positions.
-- Nodes 8+ default to Reproductive with 3 positions.
-- **Position 1 on every default reproductive node now starts as Square.**
-- Positions 2 and 3 remain blank by default.
-- All values can still be changed manually.
+- Reproductive branches now shorten automatically when trailing positions are set to **"-"**.
+- The branch ends at the last position that contains a Square, White Flower, Boll, Cracked Boll or Missing Fruit.
+- If all positions on a reproductive node are "-", only a short branch stub is shown.
+- Position Count can still be adjusted independently in the data-entry table.
