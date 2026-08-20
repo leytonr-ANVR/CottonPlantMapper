@@ -265,17 +265,52 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
         y = node
         count = int(row['Position Count'])
 
-        # Node number beside the main stem, matching the reference image.
+        # Show node number plus node type directly on the interactive map.
+        type_short = {
+            "Vegetative": "V",
+            "Reproductive": "R",
+            "Vegetative Lateral": "VL",
+        }[ntype]
+        type_colour = {
+            "Vegetative": "#4d8ed8",
+            "Reproductive": "#20b95a",
+            "Vegetative Lateral": "#f07d18",
+        }[ntype]
+
+        label_x = -0.10 if side > 0 else 0.10
+        label_ha = "right" if side > 0 else "left"
+
+        # Node number.
         ax.text(
-            -0.08 if side > 0 else 0.08,
+            label_x,
             y + .02,
             str(node),
             fontsize=8.6,
-            fontweight='bold',
-            color='#101010',
-            ha='right' if side > 0 else 'left',
-            va='center',
+            fontweight="bold",
+            color="#101010",
+            ha=label_ha,
+            va="center",
             zorder=20,
+        )
+
+        # Coloured R / V / VL badge immediately beside the node number.
+        badge_x = label_x + (-.22 if side > 0 else .22)
+        ax.text(
+            badge_x,
+            y + .02,
+            type_short,
+            fontsize=6.8 if type_short != "VL" else 6.1,
+            fontweight="bold",
+            color="white",
+            ha="center",
+            va="center",
+            zorder=21,
+            bbox=dict(
+                boxstyle="round,pad=0.22",
+                facecolor=type_colour,
+                edgecolor=type_colour,
+                linewidth=.5,
+            ),
         )
 
         # Reproductive node junction is a small green/open position-style circle.
@@ -525,7 +560,7 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
             fruit = row[f'Position {p}']
             # The supplied PDF has only the active fruit visible, not empty circles.
             if fruit != '-':
-                draw_symbol(ax, x, py, fruit, .145)
+                draw_interactive_symbol(ax, x, py, fruit, .145)
             if show_labels:
                 ax.text(x + (.07 if side > 0 else -.07), py + .10,
                         f'{node}-{p}', fontsize=7.0, color='#68717b',
@@ -844,6 +879,8 @@ with left:
 
 with centre:
     fig = make_map(st.session_state.plant_matrix, min_node, max_node, show_labels, show_positions, show_ground)
+    # PNG export uses make_map(), so it contains the same custom Boll,
+    # White Flower, Square and Cracked Boll artwork as the interactive map.
     png = fig_bytes(fig, "png")
     interactive_map(png, height=640 if compact else 720)
     plt.close(fig)

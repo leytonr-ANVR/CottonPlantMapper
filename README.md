@@ -1,13 +1,12 @@
-# Cotton Plant Mapper v40
+# Cotton Plant Mapper v42
 
-Legend updated to match the interactive Cotton Plant Map.
+Interactive map now displays each node's type.
 
-The Legend now uses the same custom artwork and scaling for:
-- Boll
-- White Flower
-- Square
-- Cracked Boll
+Node type badges:
+- **R** — Reproductive, green
+- **V** — Vegetative, blue
+- **VL** — Vegetative Lateral, orange
 
-Missing Fruit and Position (Empty) retain their matching map symbols.
+The badge is displayed beside each node number on the interactive plant map and updates according to the Type selected in Node Data Entry.
 
-This means the symbol shown in the Legend now visually matches the symbol shown on the plant map.
+PDF and PNG export symbol artwork remains unchanged.
