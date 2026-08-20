@@ -1,10 +1,12 @@
-# Cotton Plant Mapper v17
+# Cotton Plant Mapper v18
 
-The web-app legend now uses the same drawn cotton symbols as the plant map for:
-- Boll
-- White Flower
-- Square
-- Cracked Boll
-- Missing Fruit
+Website scaling update.
 
-This replaces the generic emoji legend and keeps the symbol style consistent between the legend and map.
+Changes include:
+- fixed, viewport-friendly plant-map height
+- narrower overall page width with responsive desktop scaling
+- reduced header and report-row height
+- shorter legend panel
+- better left/map/right column proportions
+- reduced data-entry table height
+- responsive font and button sizing for smaller laptops

@@ -125,7 +125,7 @@ def draw_symbol(ax, x, y, fruit, s=.13):
     elif fruit == "Missing Fruit": draw_missing(ax,x,y,s)
 
 def legend_image():
-    fig, ax = plt.subplots(figsize=(2.9, 4.2))
+    fig, ax = plt.subplots(figsize=(2.9, 3.35))
     ax.set_xlim(0, 3); ax.set_ylim(0, 6); ax.axis("off")
     items = [
         ("Boll", draw_boll),
@@ -142,7 +142,8 @@ def legend_image():
     return fig
 
 def make_figure(df, min_node, max_node, show_labels=True, show_positions=True, show_ground=True):
-    fig_h=max(8,(max_node-min_node+1)*.46)
+    node_span = max_node - min_node + 1
+    fig_h = 7.35 if node_span <= 24 else 8.25
     fig,ax=plt.subplots(figsize=(7.4,fig_h))
     ground=min_node-1.0
     ax.plot([0,0],[ground,max_node+.8],color="#008f45",lw=4,zorder=2)
@@ -202,29 +203,127 @@ def to_bytes(fig, fmt):
 
 st.markdown("""
 <style>
-:root{--navy:#062d57;--green:#078447;--border:#d8e3ec}
-.block-container{max-width:1550px;padding-top:.65rem}
+:root{
+  --navy:#062d57;
+  --green:#078447;
+  --border:#d8e3ec;
+  --page:#ffffff;
+}
+
+/* Keep the whole app comfortably inside a normal desktop browser viewport. */
+.block-container{
+  width:min(96vw, 1440px) !important;
+  max-width:1440px !important;
+  padding:0.45rem 0.8rem 1rem !important;
+  margin:0 auto !important;
+}
 [data-testid="stSidebar"]{display:none}
-.top-title{font-size:31px;font-weight:800;color:var(--navy)}
-.top-sub{font-size:15px;color:#315d8a;margin-top:4px}
-.panel,.legend-card{border:1px solid var(--border);border-radius:12px;background:white;padding:12px 14px}
-.metric-card{border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;background:linear-gradient(#fff,#f7fbfb)}
-.metric-label{font-size:14px;color:#17395f}.metric-value{font-size:27px;font-weight:800;color:#0b7a38}
-.stTabs [data-baseweb="tab"]{font-weight:700;color:var(--navy)}
+
+html, body, [class*="css"]{
+  font-size:15px;
+}
+
+.top-title{
+  font-size:clamp(24px,2vw,31px);
+  font-weight:800;
+  color:var(--navy);
+  line-height:1.05;
+  white-space:nowrap;
+}
+.top-sub{
+  font-size:clamp(12px,1vw,15px);
+  color:#315d8a;
+  margin-top:4px;
+}
+
+.panel,.legend-card{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+  padding:10px 12px;
+}
+
+.metric-card{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 8px;
+  text-align:center;
+  background:linear-gradient(#fff,#f7fbfb);
+  min-height:82px;
+}
+.metric-label{font-size:13px;color:#17395f}
+.metric-value{font-size:24px;font-weight:800;color:#0b7a38;margin-top:3px}
+
+/* Tighter controls so the top report row does not dominate the page. */
+[data-testid="stTextInput"] label,
+[data-testid="stDateInput"] label,
+[data-testid="stNumberInput"] label{
+  font-size:12px !important;
+}
+[data-baseweb="input"]{
+  min-height:38px !important;
+}
+
+.stTabs [data-baseweb="tab-list"]{gap:2px}
+.stTabs [data-baseweb="tab"]{
+  font-weight:700;
+  color:var(--navy);
+  padding-left:10px;
+  padding-right:10px;
+}
 .stTabs [aria-selected="true"]{color:var(--green)!important}
+
+/* Make the table and chart fill their panels without overflowing them. */
+div[data-testid="stDataEditor"]{
+  width:100% !important;
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+}
+div[data-testid="stImage"],
+div[data-testid="stImage"] img,
+div[data-testid="stPyplot"] img{
+  max-width:100% !important;
+  height:auto !important;
+}
+
+.stButton>button,.stDownloadButton>button{
+  border-radius:8px!important;
+  font-weight:700!important;
+  min-height:38px;
+  padding:.35rem .55rem;
+  font-size:13px;
+}
+
+/* Desktop scaling */
+@media (max-width: 1400px){
+  .block-container{width:98vw !important;padding-left:.55rem !important;padding-right:.55rem !important}
+  html, body, [class*="css"]{font-size:14px}
+  .top-title{font-size:26px}
+  .metric-value{font-size:22px}
+}
+
+/* Smaller laptops: keep everything readable and reduce whitespace. */
+@media (max-width: 1180px){
+  .top-title{font-size:23px;white-space:normal}
+  .top-sub{font-size:12px}
+  .metric-label{font-size:12px}
+  .metric-value{font-size:20px}
+  .stButton>button,.stDownloadButton>button{font-size:12px}
+}
 </style>
 """, unsafe_allow_html=True)
 
 logo=Path(__file__).with_name("agnvet_rural_logo.png")
 h1,h2,h3=st.columns([1,2.7,2.2],vertical_alignment="center")
 with h1:
-    if logo.exists(): st.image(str(logo),width=190)
+    if logo.exists(): st.image(str(logo),width=170)
 with h2:
     st.markdown('<div class="top-title">Cotton Plant Mapper 🌱</div><div class="top-sub">Accurate mapping. Better decisions.</div>',unsafe_allow_html=True)
 with h3:
     e1,e2,e3=st.columns(3); pdfslot=e1.empty(); pngslot=e2.empty(); clear=e3.button("🗑 Clear Map",use_container_width=True)
 
-st.markdown("### 🛡 Report Details")
+st.markdown("#### 🛡 Report Details")
 r1,r2,r3,r4,r5,r6=st.columns([1.4,1.4,1.2,.85,.7,.7])
 farm=r1.text_input("Farm")
 paddock=r2.text_input("Paddock Name")
@@ -239,7 +338,7 @@ st.session_state.plant_matrix=normalize_matrix(st.session_state.plant_matrix,int
 if clear:
     st.session_state.plant_matrix=blank_matrix(int(min_node),int(max_node)); st.rerun()
 
-left,centre,right=st.columns([1.22,1.52,.48],gap="medium")
+left,centre,right=st.columns([1.18,1.48,.52],gap="small")
 show_labels=show_positions=show_ground=True
 
 with left:
@@ -248,7 +347,7 @@ with left:
         st.markdown("### Node Entry")
         a,b,c=st.columns(3); a.info("**V Vegetative**"); b.success("**R Reproductive**"); c.warning("**VL Vegetative Lateral**")
         edited=st.data_editor(
-            st.session_state.plant_matrix,use_container_width=True,hide_index=True,height=520,
+            st.session_state.plant_matrix,use_container_width=True,hide_index=True,height=455,
             column_config={
                 "Node":st.column_config.NumberColumn("Node",disabled=True),
                 "Node Type":st.column_config.SelectboxColumn("Type",options=NODE_TYPES),
@@ -268,7 +367,7 @@ with left:
         show_labels=st.toggle("Show Labels",True); show_positions=st.toggle("Show Positions",True); show_ground=st.toggle("Show Ground Line",True)
 
 with centre:
-    st.markdown("<h3 style='text-align:center'>Cotton Plant Map</h3>",unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center;margin:0 0 2px'>Cotton Plant Map</h3>",unsafe_allow_html=True)
     fig=make_figure(st.session_state.plant_matrix,int(min_node),int(max_node),show_labels,show_positions,show_ground)
     st.pyplot(fig,use_container_width=True)
     png=to_bytes(fig,"png"); pdf=to_bytes(fig,"pdf")
