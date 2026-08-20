@@ -431,64 +431,77 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
                 fontsize=8, fontweight="bold", color="#1F1F1F",
                 ha="right" if side > 0 else "left", va="center", zorder=11)
 
-    ax.set_title(title, fontsize=17, fontweight="bold", pad=72)
+    # Clean report header.
+    # Keep the title and report details away from the logo so nothing overlaps.
+    ax.set_title("", pad=0)
 
-    # AGnVET Rural logo on report/map.
     try:
         logo_path = Path(__file__).with_name("agnvet_rural_logo.png")
         if logo_path.exists():
             logo_img = mpimg.imread(str(logo_path))
-            logo_ax = fig.add_axes([0.065, 0.925, 0.16, 0.065])
+            logo_ax = fig.add_axes([0.075, 0.930, 0.115, 0.050])
             logo_ax.imshow(logo_img)
             logo_ax.axis("off")
     except Exception:
         pass
 
-    # Farm / paddock / grower / date details.
-    detail_lines = []
-    if farm:
-        detail_lines.append(f"Farm: {farm}")
-    if paddock:
-        detail_lines.append(f"Paddock: {paddock}")
-    if grower:
-        detail_lines.append(f"Grower: {grower}")
-    if report_date:
-        detail_lines.append(f"Date: {report_date}")
+    # Main report title.
+    fig.text(
+        0.22, 0.963, title,
+        ha="left", va="center",
+        fontsize=17, fontweight="bold",
+        color="#222222"
+    )
 
-    if detail_lines:
-        ax.text(
-            0.5, 1.085,
-            "    |    ".join(detail_lines),
-            transform=ax.transAxes,
-            ha="center", va="bottom",
-            fontsize=10,
-            color="#333333",
-            zorder=20
-        )
+    # Compact report details in two balanced rows.
+    left_details = []
+    right_details = []
+    if farm:
+        left_details.append(f"Farm: {farm}")
+    if paddock:
+        left_details.append(f"Paddock: {paddock}")
+    if grower:
+        right_details.append(f"Grower: {grower}")
+    if report_date:
+        right_details.append(f"Date: {report_date}")
+
+    fig.text(
+        0.22, 0.938,
+        "   |   ".join(left_details),
+        ha="left", va="center",
+        fontsize=9.2, color="#444444"
+    )
+    fig.text(
+        0.60, 0.938,
+        "   |   ".join(right_details),
+        ha="left", va="center",
+        fontsize=9.2, color="#444444"
+    )
 
     retention_text = (
         f"{metrics['retention']:.1f}%"
         if metrics["retention"] is not None else "-"
     )
+
+    # Summary metrics on their own row beneath the header.
     summary_text = (
-        f"Total Nodes: {metrics['total_nodes']}    "
-        f"Total Positions: {metrics['total_positions']}    "
-        f"Held Positions: {metrics['held_positions']}    "
-        f"Missing Fruit: {metrics['missing_positions']}    "
-        f"Retention: {retention_text}"
+        f"Total Nodes  {metrics['total_nodes']}     "
+        f"Total Positions  {metrics['total_positions']}     "
+        f"Held Positions  {metrics['held_positions']}     "
+        f"Missing Fruit  {metrics['missing_positions']}     "
+        f"Retention  {retention_text}"
     )
-    ax.text(
-        0.5, 1.015, summary_text,
-        transform=ax.transAxes,
-        ha="center", va="bottom",
-        fontsize=10, fontweight="bold",
+    fig.text(
+        0.5, 0.907, summary_text,
+        ha="center", va="center",
+        fontsize=9.5, fontweight="bold",
+        color="#222222",
         bbox=dict(
-            boxstyle="round,pad=0.45",
-            facecolor="white",
-            edgecolor="#B7C9CE",
-            alpha=0.96
-        ),
-        zorder=20
+            boxstyle="round,pad=0.42",
+            facecolor="#F7FAFA",
+            edgecolor="#C7D4D8",
+            alpha=1.0
+        )
     )
 
     ax.set_xlim(-2.55, 2.55)
@@ -506,7 +519,7 @@ def make_figure(matrix_df, min_node, max_node, title, farm, paddock, grower, rep
         ax.text(lx + 0.28, yy, fruit, ha="left", va="center",
                 fontsize=9, color="#222222")
 
-    fig.tight_layout()
+    fig.tight_layout(rect=[0.03, 0.02, 0.97, 0.885])
     return fig
 
 def fig_to_png(fig):

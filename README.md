@@ -1,17 +1,13 @@
-# Cotton Plant Mapper v11
+# Cotton Plant Mapper v12
 
-Report details have been moved from the sidebar into the **Data Entry** tab.
+The PDF/report header has been cleaned up to reduce clutter.
 
-The Data Entry section now starts with:
-- Farm
-- Paddock Name
-- Grower
-- Date
+## Header improvements
+- Smaller AGnVET Rural logo
+- Report title positioned separately from the logo
+- Farm and Paddock grouped on the left
+- Grower and Date grouped on the right
+- Dashboard totals moved to a separate summary row
+- Extra spacing added before the plant diagram/Terminal
 
-These details continue to appear on the dashboard and generated PDF/report.
-
-## Run
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+This fixes the overlap visible in the previous report header.
