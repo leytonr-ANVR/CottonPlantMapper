@@ -2,10 +2,11 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Ellipse, Polygon
 from io import BytesIO
+import numpy as np
 
-st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌱", layout="wide")
+st.set_page_config(page_title="Cotton Plant Mapper", page_icon="🌿", layout="wide")
 
 FRUIT_TYPES = ["-", "Boll", "Square", "White Flower", "Missing Fruit"]
 POSITIONS = [1, 2, 3]
@@ -21,13 +22,10 @@ def blank_matrix(min_node=5, max_node=22):
 
 def normalize_matrix(df, min_node, max_node):
     base = blank_matrix(min_node, max_node)
-    if df is None or df.empty:
+    if df is None or df.empty or "Node" not in df.columns:
         return base
 
     df = df.copy()
-    if "Node" not in df.columns:
-        return base
-
     df["Node"] = pd.to_numeric(df["Node"], errors="coerce")
     df = df.dropna(subset=["Node"])
     df["Node"] = df["Node"].astype(int)
@@ -40,14 +38,14 @@ def normalize_matrix(df, min_node, max_node):
     if "Notes" not in df.columns:
         df["Notes"] = ""
 
-    keep = df[["Node", "Position 1", "Position 2", "Position 3", "Notes"]]
-    out = base.merge(keep, on="Node", how="left", suffixes=("", "_old"))
-
+    out = base.merge(
+        df[["Node", "Position 1", "Position 2", "Position 3", "Notes"]],
+        on="Node", how="left", suffixes=("", "_saved")
+    )
     for col in ["Position 1", "Position 2", "Position 3", "Notes"]:
-        old = f"{col}_old"
-        if old in out.columns:
-            out[col] = out[old].fillna(out[col])
-
+        saved = f"{col}_saved"
+        if saved in out.columns:
+            out[col] = out[saved].fillna(out[col])
     return out[["Node", "Position 1", "Position 2", "Position 3", "Notes"]]
 
 def matrix_to_long(df):
@@ -62,70 +60,196 @@ def matrix_to_long(df):
             })
     return pd.DataFrame(rows)
 
-def draw_symbol(ax, x, y, fruit, size=0.13):
+# ---------- Cotton-style fruit symbols ----------
+
+def draw_square(ax, x, y, scale=0.12):
+    # Green square/bud with three bracts.
+    ax.add_patch(Circle((x, y), scale*0.62, facecolor="#6BAE3E",
+                        edgecolor="#3F7F28", lw=1.0, zorder=8))
+    for ang in [90, 210, 330]:
+        a = np.deg2rad(ang)
+        px = x + np.cos(a)*scale*0.58
+        py = y + np.sin(a)*scale*0.58
+        left = (x + np.cos(a+0.55)*scale*1.15,
+                y + np.sin(a+0.55)*scale*1.15)
+        right = (x + np.cos(a-0.55)*scale*1.15,
+                 y + np.sin(a-0.55)*scale*1.15)
+        tip = (x + np.cos(a)*scale*1.32,
+               y + np.sin(a)*scale*1.32)
+        ax.add_patch(Polygon([left, tip, right], closed=True,
+                             facecolor="#62A93A", edgecolor="#3F7F28",
+                             lw=0.7, zorder=7))
+
+def draw_white_flower(ax, x, y, scale=0.16):
+    # Five soft white petals with a light pink centre.
+    for ang in np.linspace(0, 360, 5, endpoint=False):
+        a = np.deg2rad(ang)
+        px = x + np.cos(a)*scale*0.55
+        py = y + np.sin(a)*scale*0.55
+        ax.add_patch(Ellipse((px, py), scale*1.05, scale*0.72,
+                             angle=ang, facecolor="white",
+                             edgecolor="#E8E8E8", lw=0.9, zorder=8))
+    ax.add_patch(Circle((x, y), scale*0.28, facecolor="#F7D6D8",
+                        edgecolor="#D9A8AE", lw=0.7, zorder=9))
+    # Green bracts beneath flower
+    for ang in [205, 270, 335]:
+        a = np.deg2rad(ang)
+        tip = (x + np.cos(a)*scale*1.05,
+               y + np.sin(a)*scale*1.05)
+        l = (x + np.cos(a+0.35)*scale*0.35,
+             y + np.sin(a+0.35)*scale*0.35)
+        r = (x + np.cos(a-0.35)*scale*0.35,
+             y + np.sin(a-0.35)*scale*0.35)
+        ax.add_patch(Polygon([l, tip, r], closed=True,
+                             facecolor="#5FA237", edgecolor="#417A2A",
+                             lw=0.6, zorder=7))
+
+def draw_boll(ax, x, y, scale=0.15):
+    # Open cotton boll: brown base, white cotton locks.
+    ax.plot([x, x], [y-scale*1.35, y-scale*0.65],
+            color="#6A3D1F", lw=1.5, zorder=6)
+    for dx, dy, s in [
+        (-0.42, 0.08, 0.72),
+        (0.00, 0.25, 0.82),
+        (0.42, 0.08, 0.72),
+        (-0.18, -0.20, 0.68),
+        (0.20, -0.20, 0.68),
+    ]:
+        ax.add_patch(Circle((x+dx*scale, y+dy*scale),
+                            scale*s, facecolor="white",
+                            edgecolor="#D7D7D7", lw=0.8, zorder=9))
+    for ang in [210, 270, 330]:
+        a = np.deg2rad(ang)
+        tip = (x + np.cos(a)*scale*1.25,
+               y + np.sin(a)*scale*1.05)
+        l = (x + np.cos(a+0.25)*scale*0.38,
+             y + np.sin(a+0.25)*scale*0.30)
+        r = (x + np.cos(a-0.25)*scale*0.38,
+             y + np.sin(a-0.25)*scale*0.30)
+        ax.add_patch(Polygon([l, tip, r], closed=True,
+                             facecolor="#8B4D22", edgecolor="#653515",
+                             lw=0.7, zorder=8))
+
+def draw_missing(ax, x, y, scale=0.13):
+    # Small fruiting scar/stub rather than a generic X.
+    ax.plot([x-scale*0.55, x+scale*0.35],
+            [y-scale*0.18, y+scale*0.10],
+            color="#6B4B2B", lw=2.0, zorder=8)
+    ax.add_patch(Circle((x+scale*0.42, y+scale*0.12),
+                        scale*0.20, facecolor="#9B6A3B",
+                        edgecolor="#5E3B20", lw=0.8, zorder=9))
+
+def draw_symbol(ax, x, y, fruit, scale=0.13):
     if fruit == "Boll":
-        ax.add_patch(Circle((x, y), size, facecolor="black", edgecolor="black", lw=1.2, zorder=5))
+        draw_boll(ax, x, y, scale*1.05)
     elif fruit == "Square":
-        ax.scatter([x], [y], marker="P", s=90, c="black", zorder=5)
+        draw_square(ax, x, y, scale)
     elif fruit == "White Flower":
-        ax.scatter([x], [y], marker="D", s=70, facecolors="white", edgecolors="black", linewidths=1.3, zorder=5)
+        draw_white_flower(ax, x, y, scale*1.05)
     elif fruit == "Missing Fruit":
-        ax.scatter([x], [y], marker="x", s=80, c="black", linewidths=1.6, zorder=5)
+        draw_missing(ax, x, y, scale)
 
 def make_figure(matrix_df, min_node, max_node, title, show_labels=True):
     df = matrix_to_long(matrix_df)
-    fig_h = max(8, (max_node - min_node + 1) * 0.48)
-    fig, ax = plt.subplots(figsize=(8.5, fig_h))
 
-    ax.plot([0, 0], [min_node - 0.8, max_node + 0.8], color="black", lw=5, solid_capstyle="round")
+    n_nodes = max_node - min_node + 1
+    fig_h = max(9.5, n_nodes * 0.58)
+    fig, ax = plt.subplots(figsize=(9.2, fig_h))
+    ax.set_facecolor("#EAF5F8")
 
+    # Ground
+    ground_y = min_node - 1.15
+    ax.fill_between([-2.8, 2.8], ground_y-0.35, ground_y,
+                    color="#9A642C", zorder=0)
+
+    # Main green stem with terminal.
+    stem_x = 0
+    ax.plot([stem_x, stem_x], [ground_y, max_node + 0.9],
+            color="#3E8E45", lw=5.0, solid_capstyle="round", zorder=2)
+
+    # Plant base
+    ax.add_patch(Polygon([
+        (-0.14, ground_y), (0.14, ground_y),
+        (0.04, ground_y+0.28), (-0.04, ground_y+0.28)
+    ], closed=True, facecolor="#3E8E45", edgecolor="#3E8E45", zorder=2))
+
+    # Terminal shape
+    ax.plot([0, -0.16], [max_node+0.9, max_node+1.16],
+            color="#5BAE3E", lw=3.2, zorder=3)
+    ax.plot([0, 0.16], [max_node+0.9, max_node+1.13],
+            color="#5BAE3E", lw=3.2, zorder=3)
+    ax.text(0, max_node+1.45, "Terminal", ha="center", va="center",
+            fontsize=12, fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.35", facecolor="white",
+                      edgecolor="none", alpha=0.95))
+
+    # Fruiting branches: more natural zig-zag shape, alternating sides.
     for node in range(min_node, max_node + 1):
         side = -1 if node % 2 else 1
         y = node
+        branch_len = 1.45 + (0.42 if node < min_node + n_nodes*0.45 else 0.10)
 
-        ax.plot([0, -0.32 * side], [y, y + 0.12], color="black", lw=1.1)
+        # Slightly upward branch path with bends.
+        x0 = 0.0
+        x1 = side * 0.52
+        x2 = side * 1.05
+        x3 = side * branch_len
+        y1 = y + 0.03
+        y2 = y + 0.20
+        y3 = y + 0.34
+        ax.plot([x0, x1, x2, x3], [y, y1, y2, y3],
+                color="#4F9C37", lw=3.0, solid_capstyle="round", zorder=3)
 
-        xs = [0.45 * side, 0.88 * side, 1.27 * side]
-        ys = [y + 0.02, y + 0.13, y + 0.25]
-        ax.plot([0, xs[0], xs[1], xs[2]], [y, ys[0], ys[1], ys[2]], color="black", lw=1.2)
+        # A small vegetative branch / leaf hint on opposite side.
+        if node % 3 == 0:
+            ox = -side * 0.55
+            ax.plot([0, ox*0.55, ox], [y+0.03, y+0.18, y+0.34],
+                    color="#5EAB3D", lw=2.4, solid_capstyle="round", zorder=2)
 
-        for pos, x, py in zip(POSITIONS, xs, ys):
+        # node dots like the supplied reference
+        ax.add_patch(Circle((0, y), 0.095, facecolor="black",
+                            edgecolor="black", zorder=10))
+
+        # positions placed along the branch
+        coords = [
+            (side * 0.48, y + 0.04),
+            (side * 0.98, y + 0.18),
+            (side * (branch_len - 0.05), y + 0.33),
+        ]
+
+        for pos, (x, py) in zip(POSITIONS, coords):
             row = df[(df["Node"] == node) & (df["Position"] == pos)]
             fruit = row.iloc[0]["Fruit"] if len(row) else "-"
-            draw_symbol(ax, x, py, fruit)
+            if fruit != "-":
+                draw_symbol(ax, x, py, fruit, scale=0.14)
 
             if show_labels:
-                label_x = x + (0.12 if side > 0 else -0.12)
-                ha = "left" if side > 0 else "right"
-                ax.text(label_x, py + 0.10, f"{node}-{pos}", fontsize=7, ha=ha, va="bottom")
+                off = 0.10 if side > 0 else -0.10
+                ax.text(x + off, py + 0.15, f"{node}-{pos}",
+                        fontsize=7, color="#333333",
+                        ha="left" if side > 0 else "right",
+                        va="bottom", zorder=11)
 
-        ax.text(
-            0.10 if side < 0 else -0.10,
-            y,
-            str(node),
-            fontsize=8,
-            ha="left" if side < 0 else "right",
-            va="center",
-        )
+        # Node number shown beside the stem
+        ax.text(-0.18 if side > 0 else 0.18, y, str(node),
+                fontsize=8, fontweight="bold", color="#1F1F1F",
+                ha="right" if side > 0 else "left", va="center", zorder=11)
 
-    ax.set_title(title, fontsize=15, pad=14)
-    ax.set_xlim(-1.75, 1.75)
-    ax.set_ylim(min_node - 1.1, max_node + 1.2)
-    ax.set_aspect("equal", adjustable="box")
+    ax.set_title(title, fontsize=17, fontweight="bold", pad=16)
+    ax.set_xlim(-2.55, 2.55)
+    ax.set_ylim(ground_y-0.20, max_node + 1.85)
     ax.axis("off")
 
-    handles = [
-        plt.Line2D([0], [0], marker="o", color="none", markerfacecolor="black",
-                   markeredgecolor="black", markersize=8, label="Boll"),
-        plt.Line2D([0], [0], marker="P", color="black", linestyle="None",
-                   markersize=8, label="Square"),
-        plt.Line2D([0], [0], marker="D", color="none", markerfacecolor="white",
-                   markeredgecolor="black", markersize=7, label="White Flower"),
-        plt.Line2D([0], [0], marker="x", color="black", linestyle="None",
-                   markersize=8, label="Missing Fruit"),
-    ]
-    ax.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.035),
-              ncol=4, frameon=False, fontsize=9)
+    # Custom legend with the same cotton-style symbols
+    lx = -2.25
+    ly = ground_y + 0.32
+    spacing = 0.72
+    legend_items = ["Square", "White Flower", "Boll", "Missing Fruit"]
+    for i, fruit in enumerate(legend_items):
+        yy = ly + i * spacing
+        draw_symbol(ax, lx, yy, fruit, scale=0.13)
+        ax.text(lx + 0.28, yy, fruit, ha="left", va="center",
+                fontsize=9, color="#222222")
 
     fig.tight_layout()
     return fig
@@ -142,9 +266,9 @@ def fig_to_pdf(fig):
     buf.seek(0)
     return buf
 
-st.title("🌱 Cotton Plant Mapper")
+st.title("🌿 Cotton Plant Mapper")
 st.caption(
-    "Enter each node across one row, with fruiting positions 1, 2 and 3 across the columns — like a traditional cotton plant mapping sheet."
+    "Map cotton fruiting by node and position, then generate a plant-style diagram using cotton squares, flowers, bolls and fruiting scars."
 )
 
 with st.sidebar:
@@ -155,7 +279,7 @@ with st.sidebar:
         min_value=int(min_node),
         max_value=60,
         value=max(22, int(min_node)),
-        step=1,
+        step=1
     )
     plant_name = st.text_input("Plant / sample name", value="Cotton Plant Map")
     show_labels = st.checkbox("Show node-position labels", value=True)
@@ -172,8 +296,8 @@ tab1, tab2, tab3 = st.tabs(["Data Entry", "Plant Map", "Summary"])
 with tab1:
     st.subheader("Node × Position Entry")
     st.write(
-        "Each **row is one node**. Use the three position columns to record the fruiting status. "
-        "**Position 1** is closest to the main stem."
+        "Each row is one node. Record Positions **1, 2 and 3** across the row. "
+        "Position 1 is closest to the main stem."
     )
 
     edited = st.data_editor(
@@ -183,12 +307,7 @@ with tab1:
         num_rows="fixed",
         column_config={
             "Node": st.column_config.NumberColumn(
-                "Node",
-                min_value=int(min_node),
-                max_value=int(max_node),
-                step=1,
-                disabled=True,
-                width="small",
+                "Node", disabled=True, width="small"
             ),
             "Position 1": st.column_config.SelectboxColumn(
                 "1", options=FRUIT_TYPES, required=True, width="small"
@@ -213,7 +332,6 @@ with tab1:
         if st.button("Clear all fruit", use_container_width=True):
             st.session_state.plant_matrix = blank_matrix(int(min_node), int(max_node))
             st.rerun()
-
     with c2:
         st.download_button(
             "Download data as CSV",
@@ -222,19 +340,6 @@ with tab1:
             mime="text/csv",
             use_container_width=True,
         )
-
-    st.markdown("#### Entry key")
-    key_df = pd.DataFrame({
-        "Entry": ["-", "Boll", "Square", "White Flower", "Missing Fruit"],
-        "Meaning": [
-            "No fruit recorded",
-            "Boll present",
-            "Square / bud present",
-            "White flower present",
-            "Fruit missing / shed",
-        ],
-    })
-    st.dataframe(key_df, use_container_width=True, hide_index=True)
 
     uploaded = st.file_uploader("Load a saved CSV", type=["csv"])
     if uploaded is not None:
@@ -287,13 +392,10 @@ with tab3:
     for col, label in zip(cols, counts.index):
         col.metric(label, int(counts[label]))
 
-    occupied = int(
-        long_df["Fruit"].isin(["Boll", "Square", "White Flower"]).sum()
-    )
+    occupied = int(long_df["Fruit"].isin(["Boll", "Square", "White Flower"]).sum())
     missing = int((long_df["Fruit"] == "Missing Fruit").sum())
     recorded = occupied + missing
 
-    st.markdown("#### Fruiting summary")
     summary_df = pd.DataFrame({
         "Metric": [
             "Recorded fruiting sites",
@@ -311,6 +413,4 @@ with tab3:
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
 st.divider()
-st.caption(
-    "Designed for fast plant mapping: scan down the nodes and record Positions 1, 2 and 3 across each row."
-)
+st.caption("Plant map styling updated to resemble a real cotton plant with natural green branches and cotton-specific fruit symbols.")

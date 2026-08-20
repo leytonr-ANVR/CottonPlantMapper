@@ -1,12 +1,15 @@
-# Cotton Plant Mapper
+# Cotton Plant Mapper v3
 
-Updated Streamlit web app for cotton plant mapping.
+This version updates the generated plant diagram to look more like a real cotton plant.
 
-## Data entry layout
-The input sheet now follows a traditional cotton mapping layout:
-- one row per node
-- Position 1, Position 2 and Position 3 across the columns
-- dropdown entry for Boll, Square, White Flower, Missing Fruit or blank (-)
+## Updated plant map
+- Green main stem and fruiting branches
+- Black node markers
+- Cotton-style green square/bud symbol
+- White flower symbol
+- Open cotton boll symbol
+- Fruiting scar symbol for missing fruit
+- Node-position labels can be turned on/off
 
 ## Run
 ```bash
