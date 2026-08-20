@@ -1,10 +1,13 @@
-# Cotton Plant Mapper v38
+# Cotton Plant Mapper v40
 
-Interactive map symbol scaling improved.
+Legend updated to match the interactive Cotton Plant Map.
 
-Boll, White Flower, Square and Cracked Boll are now normalised to a similar
-visual size. The renderer crops excess transparent/light padding from each
-source image before applying a shared display scale, so one symbol should no
-longer appear much larger or smaller simply because its PNG canvas differs.
+The Legend now uses the same custom artwork and scaling for:
+- Boll
+- White Flower
+- Square
+- Cracked Boll
 
-PDF export is unchanged.
+Missing Fruit and Position (Empty) retain their matching map symbols.
+
+This means the symbol shown in the Legend now visually matches the symbol shown on the plant map.

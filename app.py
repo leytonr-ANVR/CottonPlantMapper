@@ -167,19 +167,19 @@ def _draw_interactive_image(ax, x, y, filename, fallback, s=.14, visual_zoom=.46
 
 
 def draw_boll_image(ax, x, y, s=.14):
-    _draw_interactive_image(ax, x, y, "boll_symbol.png", draw_boll, s, visual_zoom=.46)
+    _draw_interactive_image(ax, x, y, "boll_symbol.png", draw_boll, s, visual_zoom=0.6359)
 
 
 def draw_white_flower_image(ax, x, y, s=.14):
-    _draw_interactive_image(ax, x, y, "white_flower_symbol.png", draw_flower, s, visual_zoom=.46)
+    _draw_interactive_image(ax, x, y, "white_flower_symbol.png", draw_flower, s, visual_zoom=0.0970)
 
 
 def draw_cracked_boll_image(ax, x, y, s=.14):
-    _draw_interactive_image(ax, x, y, "cracked_boll_symbol.png", draw_cracked, s, visual_zoom=.46)
+    _draw_interactive_image(ax, x, y, "cracked_boll_symbol.png", draw_cracked, s, visual_zoom=0.8007)
 
 
 def draw_square_image(ax, x, y, s=.14):
-    _draw_interactive_image(ax, x, y, "square_symbol.png", draw_square, s, visual_zoom=.46)
+    _draw_interactive_image(ax, x, y, "square_symbol.png", draw_square, s, visual_zoom=0.4600)
 
 
 def draw_boll(ax, x, y, s=.14):
@@ -539,22 +539,41 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
     return fig
 
 def legend_figure():
-    fig, ax = plt.subplots(figsize=(2.7,3.45))
-    ax.set_xlim(0,3.1); ax.set_ylim(0,6.5); ax.axis("off")
-    ax.text(.12,6.2,"Legend",ha="left",va="center",fontsize=13,fontweight="bold",color="#14213d")
+    """Legend using the exact same custom symbols as the interactive map."""
+    fig, ax = plt.subplots(figsize=(2.35, 3.55))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+
     items = [
-        ("Boll", draw_boll, .23),
-        ("White Flower", draw_flower, .23),
-        ("Square", draw_square, .20),
-        ("Cracked Boll", draw_cracked, .23),
-        ("Missing Fruit", draw_missing, .19),
-        ("Position (Empty)", draw_empty, .19),
+        ("Boll", "Boll"),
+        ("White Flower", "White Flower"),
+        ("Square", "Square"),
+        ("Cracked Boll", "Cracked Boll"),
+        ("Missing Fruit", "Missing Fruit"),
+        ("Position (Empty)", "Position (Empty)"),
     ]
-    for i,(label,fn,size) in enumerate(items):
-        y=5.45-i*.90
-        fn(ax,.48,y,size)
-        ax.text(.96,y,label,va="center",ha="left",fontsize=10.5,color="#111")
-    fig.subplots_adjust(left=.02,right=.98,top=.99,bottom=.01)
+
+    ys = np.linspace(.88, .12, len(items))
+    for (label, fruit), y in zip(items, ys):
+        if fruit == "Position (Empty)":
+            draw_empty(ax, .20, y, .055)
+        elif fruit == "Missing Fruit":
+            draw_missing(ax, .20, y, .060)
+        else:
+            # Uses the same custom image dispatcher and exact scaling as the map.
+            draw_interactive_symbol(ax, .20, y, fruit, .145)
+
+        ax.text(
+            .34, y, label,
+            fontsize=10,
+            color="#13243a",
+            fontweight="600",
+            ha="left",
+            va="center"
+        )
+
+    fig.tight_layout(pad=.15)
     return fig
 
 def fig_bytes(fig, fmt):
