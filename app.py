@@ -90,43 +90,94 @@ def calculate_metrics(df):
 
 # --- Cotton symbols used by BOTH the map and the legend ---
 def draw_square(ax, x, y, s=.12):
-    ax.add_patch(Ellipse((x,y), s*.70, s*.85, facecolor="#62ad3c", edgecolor="#347b31", lw=.8, zorder=8))
-    for ang in [45,90,135,225,270,315]:
+    # Compact pointed cotton square/bud.
+    ax.add_patch(Ellipse(
+        (x,y),s*.66,s*.78,
+        facecolor="#62ad3c",edgecolor="#347b31",lw=.8,zorder=9
+    ))
+    for ang in [0,45,90,135,180,225,270,315]:
         a=np.deg2rad(ang)
-        tip=(x+np.cos(a)*s*1.08,y+np.sin(a)*s*1.12)
-        l=(x+np.cos(a+.24)*s*.34,y+np.sin(a+.24)*s*.34)
-        r=(x+np.cos(a-.24)*s*.34,y+np.sin(a-.24)*s*.34)
-        ax.add_patch(Polygon([l,tip,r],closed=True,facecolor="#30943c",edgecolor="#277533",lw=.5,zorder=9))
+        tip=(x+np.cos(a)*s*1.30,y+np.sin(a)*s*1.30)
+        l=(x+np.cos(a+.20)*s*.30,y+np.sin(a+.20)*s*.30)
+        r=(x+np.cos(a-.20)*s*.30,y+np.sin(a-.20)*s*.30)
+        ax.add_patch(Polygon(
+            [l,tip,r],closed=True,
+            facecolor="#248d38",edgecolor="#1f7130",lw=.5,zorder=10
+        ))
+    ax.plot([x,x],[y-.48*s,y-.92*s],color="#347d2e",lw=1.0,zorder=7)
+
 
 def draw_white_flower(ax, x, y, s=.15):
-    for ang in [18,90,162,234,306]:
-        a=np.deg2rad(ang)
-        ax.add_patch(Ellipse((x+np.cos(a)*s*.42,y+np.sin(a)*s*.38),s*1.05,s*.80,angle=ang,
-                             facecolor="#fffdfd",edgecolor="#eadde3",lw=.7,zorder=9))
-    ax.add_patch(Circle((x,y),s*.24,facecolor="#f3d5df",edgecolor="#d6aeba",lw=.6,zorder=10))
+    # Large white cotton flower with a pale pink centre and green bracts.
+    petals = [
+        (-.42,.10,18), (-.18,.40,62), (.18,.40,118),
+        (.43,.10,162), (.25,-.18,215), (-.25,-.18,325)
+    ]
+    for dx,dy,ang in petals:
+        ax.add_patch(Ellipse(
+            (x+dx*s,y+dy*s), s*.95,s*.72,angle=ang,
+            facecolor="#fffdfd",edgecolor="#eadde5",lw=.75,zorder=9
+        ))
+    ax.add_patch(Circle(
+        (x,y+.02*s),s*.22,
+        facecolor="#f1cbd8",edgecolor="#d8a8b8",lw=.6,zorder=11
+    ))
     for ang in [205,240,275,310,345]:
         a=np.deg2rad(ang)
-        tip=(x+np.cos(a)*s*1.0,y+np.sin(a)*s*.95)
-        l=(x+np.cos(a+.18)*s*.32,y+np.sin(a+.18)*s*.30)
-        r=(x+np.cos(a-.18)*s*.32,y+np.sin(a-.18)*s*.30)
-        ax.add_patch(Polygon([l,tip,r],closed=True,facecolor="#359a3f",edgecolor="#287532",lw=.5,zorder=8))
+        tip=(x+np.cos(a)*s*1.18,y+np.sin(a)*s*1.05)
+        l=(x+np.cos(a+.17)*s*.34,y+np.sin(a+.17)*s*.32)
+        r=(x+np.cos(a-.17)*s*.34,y+np.sin(a-.17)*s*.32)
+        ax.add_patch(Polygon(
+            [l,tip,r],closed=True,
+            facecolor="#31943b",edgecolor="#26752f",lw=.5,zorder=8
+        ))
+    ax.plot([x,x],[y-.48*s,y-.92*s],color="#347d2e",lw=1.1,zorder=7)
+
 
 def draw_boll(ax, x, y, s=.14):
-    for dx,ang in [(-.28,-15),(0,0),(.28,15)]:
-        ax.add_patch(Ellipse((x+dx*s,y+.06*s),s*.68,s*1.0,angle=ang,
-                             facecolor="#67ad3c",edgecolor="#3e812d",lw=.8,zorder=8))
-    for ang in [55,85,115,210,270,330]:
+    # Full green cotton boll with pointed bracts.
+    for dx, ang, scale in [(-.25,-14,.90),(0,0,1.05),(.25,14,.90)]:
+        ax.add_patch(Ellipse(
+            (x+dx*s, y+.08*s), s*.78*scale, s*1.12,
+            angle=ang, facecolor="#55a630", edgecolor="#2f762b",
+            lw=.9, zorder=9
+        ))
+    # central seam
+    ax.plot([x,x],[y-.30*s,y+.48*s],color="#43872f",lw=.7,zorder=10)
+    # large bracts around boll
+    for ang in [42,72,108,138,218,270,322]:
         a=np.deg2rad(ang)
-        tip=(x+np.cos(a)*s*1.18,y+np.sin(a)*s*1.22)
-        l=(x+np.cos(a+.18)*s*.36,y+np.sin(a+.18)*s*.34)
-        r=(x+np.cos(a-.18)*s*.36,y+np.sin(a-.18)*s*.34)
-        ax.add_patch(Polygon([l,tip,r],closed=True,facecolor="#4c9433",edgecolor="#31752a",lw=.5,zorder=9))
+        tip=(x+np.cos(a)*s*1.38,y+np.sin(a)*s*1.42)
+        l=(x+np.cos(a+.20)*s*.40,y+np.sin(a+.20)*s*.38)
+        r=(x+np.cos(a-.20)*s*.40,y+np.sin(a-.20)*s*.38)
+        ax.add_patch(Polygon(
+            [l,tip,r], closed=True,
+            facecolor="#2f963a", edgecolor="#24752f",
+            lw=.55, zorder=10
+        ))
+    # short stem
+    ax.plot([x,x],[y-.58*s,y-.95*s],color="#347d2e",lw=1.2,zorder=7)
+
 
 def draw_cracked_boll(ax, x, y, s=.14):
-    # Cracked/open boll: green bracts with a visible white cotton lock.
-    draw_boll(ax, x, y, s)
-    ax.add_patch(Ellipse((x,y+.05*s),s*.48,s*.62,facecolor="#fffdf8",edgecolor="#d8d8d8",lw=.7,zorder=10))
-    ax.plot([x,x],[y-.24*s,y+.34*s],color="#7a522c",lw=.9,zorder=11)
+    # Open/cracked boll with obvious white cotton locks.
+    for dx in [-.26,0,.26]:
+        ax.add_patch(Ellipse(
+            (x+dx*s,y+.08*s),s*.56,s*.72,
+            facecolor="#fffdf8",edgecolor="#d9d7d0",lw=.7,zorder=11
+        ))
+    # green shell/bracts around cotton
+    for ang in [28,68,112,152,220,270,320]:
+        a=np.deg2rad(ang)
+        tip=(x+np.cos(a)*s*1.35,y+np.sin(a)*s*1.38)
+        l=(x+np.cos(a+.20)*s*.38,y+np.sin(a+.20)*s*.36)
+        r=(x+np.cos(a-.20)*s*.38,y+np.sin(a-.20)*s*.36)
+        ax.add_patch(Polygon(
+            [l,tip,r],closed=True,
+            facecolor="#35933b",edgecolor="#26742f",lw=.55,zorder=10
+        ))
+    ax.plot([x,x],[y-.45*s,y-.95*s],color="#704526",lw=1.2,zorder=8)
+
 
 def draw_missing(ax, x, y, s=.12):
     # Brown dashed circle, matching the missing-position symbol in the requested legend.
@@ -153,41 +204,31 @@ def draw_symbol(ax, x, y, fruit, s=.13):
     elif fruit == "-": draw_empty_position(ax,x,y,s)
 
 def legend_image():
-    # Compact legend matching the supplied reference.
-    fig, ax = plt.subplots(figsize=(2.65, 3.15))
-    ax.set_xlim(0, 3.0)
+    fig, ax = plt.subplots(figsize=(3.0, 3.55))
+    ax.set_xlim(0, 3.25)
     ax.set_ylim(0, 6.55)
     ax.axis("off")
 
-    ax.text(
-        0.18, 6.22, "Legend",
-        ha="left", va="center",
-        fontsize=12.5, fontweight="bold",
-        color="#14213d"
-    )
+    ax.text(.12, 6.20, "Legend", ha="left", va="center",
+            fontsize=13, fontweight="bold", color="#14213d")
 
     items = [
-        ("Boll", draw_boll, .18),
-        ("White Flower", draw_white_flower, .18),
-        ("Square", draw_square, .17),
-        ("Cracked Boll", draw_cracked_boll, .18),
-        ("Missing Fruit", draw_missing, .17),
-        ("Position (Empty)", draw_empty_position, .17),
+        ("Boll", draw_boll, .24),
+        ("White Flower", draw_white_flower, .24),
+        ("Square", draw_square, .21),
+        ("Cracked Boll", draw_cracked_boll, .24),
+        ("Missing Fruit", draw_missing, .20),
+        ("Position (Empty)", draw_empty_position, .20),
     ]
 
-    start_y = 5.48
-    step = .90
+    y0 = 5.45
     for i, (label, fn, size) in enumerate(items):
-        y = start_y - i * step
+        y = y0 - i*.91
         fn(ax, .48, y, size)
-        ax.text(
-            .90, y, label,
-            va="center", ha="left",
-            fontsize=10.5,
-            color="#111111"
-        )
+        ax.text(.98, y, label, va="center", ha="left",
+                fontsize=10.8, color="#111111")
 
-    fig.tight_layout(pad=.15)
+    fig.subplots_adjust(left=.02,right=.98,top=.99,bottom=.01)
     return fig
 
 def make_figure(df, min_node, max_node, show_labels=True, show_positions=True, show_ground=True):

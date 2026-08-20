@@ -1,12 +1,15 @@
-# Cotton Plant Mapper v22
+# Cotton Plant Mapper v23
 
-Legend symbols updated to match the supplied reference:
+Corrected the legend artwork.
 
-- Boll — green closed boll
-- White Flower — white/pale pink cotton flower
-- Square — green pointed square
-- Cracked Boll — green cracked/open boll with visible white cotton
-- Missing Fruit — brown dashed circle
-- Position (Empty) — open green circle
+The previous legend was still rendering the older simplified matplotlib symbols.
+v23 replaces those drawing functions themselves, so both the legend and plant map now use the updated cotton-style artwork:
 
-The same symbol functions are used in the plant map and legend for consistency.
+- full green Boll with pointed bracts
+- larger White Flower
+- pointed green Square
+- visibly open Cracked Boll with white cotton
+- brown dashed Missing Fruit
+- green open Position (Empty)
+
+The legend symbols have also been enlarged for readability.
