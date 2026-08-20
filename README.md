@@ -1,12 +1,14 @@
-# Cotton Plant Mapper v45
+# Cotton Plant Mapper v46
 
-Vegetative Lateral fruiting geometry updated.
+Node types are now shown on both exports.
 
-For **Vegetative Lateral (VL)** nodes only:
-- the long vegetative lateral remains the main branch
-- each fruiting position now grows from a short secondary/subtending fruiting branch off that main lateral
-- a small junction circle marks where each secondary branch leaves the vegetative lateral
-- Boll, Square, White Flower, Cracked Boll and Missing Fruit appear at the tip of the short secondary branch
-- Reproductive and Vegetative node geometry is unchanged
+## Export PNG
+Uses the same coloured node-type badges as the interactive map:
+- R — Reproductive, green
+- V — Vegetative, blue
+- VL — Vegetative Lateral, orange
 
-The same VL geometry is used in the interactive map, PNG export and PDF export.
+## Export PDF
+The same R / V / VL badges are displayed beside each node number.
+
+All custom fruit symbols and existing export/report features remain unchanged.

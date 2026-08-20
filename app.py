@@ -597,10 +597,41 @@ def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', repo
         y = node
         count = int(row['Position Count'])
 
-        # Large clean node number close to the stem, as in the supplied PDF.
-        ax.text(-.08 if side > 0 else .08, y, str(node),
-                fontsize=10.8, fontweight='bold', color='#151515',
-                ha='right' if side > 0 else 'left', va='center', zorder=20)
+        # Node number plus node-type badge.
+        label_x = -.08 if side > 0 else .08
+        label_ha = 'right' if side > 0 else 'left'
+
+        ax.text(
+            label_x, y, str(node),
+            fontsize=10.8, fontweight='bold', color='#151515',
+            ha=label_ha, va='center', zorder=20
+        )
+
+        type_short = {
+            'Vegetative': 'V',
+            'Reproductive': 'R',
+            'Vegetative Lateral': 'VL',
+        }[ntype]
+        type_colour = {
+            'Vegetative': '#4d8ed8',
+            'Reproductive': '#20b95a',
+            'Vegetative Lateral': '#f07d18',
+        }[ntype]
+
+        badge_x = label_x + (-.25 if side > 0 else .25)
+        ax.text(
+            badge_x, y, type_short,
+            fontsize=7.3 if type_short != 'VL' else 6.6,
+            fontweight='bold',
+            color='white',
+            ha='center', va='center', zorder=21,
+            bbox=dict(
+                boxstyle='round,pad=0.22',
+                facecolor=type_colour,
+                edgecolor=type_colour,
+                linewidth=.5,
+            )
+        )
 
         if ntype == 'Vegetative':
             branch_len = .92
