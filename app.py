@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Ellipse, Polygon
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from io import BytesIO
 from pathlib import Path
 from datetime import date
@@ -127,6 +128,94 @@ def draw_flower(ax, x, y, s=.15):
         r=(x+np.cos(a-.17)*s*.34,y+np.sin(a-.17)*s*.32)
         ax.add_patch(Polygon([l,tip,r],closed=True,facecolor="#31943b",edgecolor="#26752f",lw=.5,zorder=8))
 
+def draw_boll_image(ax, x, y, s=.14):
+    """Use the supplied boll PNG on the interactive plant map."""
+    symbol_path = Path(__file__).with_name("boll_symbol.png")
+    if not symbol_path.exists():
+        draw_boll(ax, x, y, s)
+        return
+    try:
+        img = plt.imread(str(symbol_path))
+        # Scale relative to the existing fruit symbol size.
+        zoom = max(.20, min(.70, s * 3.15))
+        artist = AnnotationBbox(
+            OffsetImage(img, zoom=zoom),
+            (x, y),
+            frameon=False,
+            box_alignment=(0.5, 0.5),
+            zorder=14,
+            pad=0,
+        )
+        ax.add_artist(artist)
+    except Exception:
+        draw_boll(ax, x, y, s)
+
+def draw_white_flower_image(ax, x, y, s=.15):
+    """Use the supplied White Flower PNG on the interactive plant map."""
+    symbol_path = Path(__file__).with_name("white_flower_symbol.png")
+    if not symbol_path.exists():
+        draw_flower(ax, x, y, s)
+        return
+    try:
+        img = plt.imread(str(symbol_path))
+        zoom = max(.22, min(.78, s * 3.45))
+        artist = AnnotationBbox(
+            OffsetImage(img, zoom=zoom),
+            (x, y),
+            frameon=False,
+            box_alignment=(0.5, 0.5),
+            zorder=14,
+            pad=0,
+        )
+        ax.add_artist(artist)
+    except Exception:
+        draw_flower(ax, x, y, s)
+
+
+def draw_cracked_boll_image(ax, x, y, s=.14):
+    """Use the supplied Cracked Boll PNG on the interactive plant map."""
+    symbol_path = Path(__file__).with_name("cracked_boll_symbol.png")
+    if not symbol_path.exists():
+        draw_cracked(ax, x, y, s)
+        return
+    try:
+        img = plt.imread(str(symbol_path))
+        zoom = max(.20, min(.72, s * 3.20))
+        artist = AnnotationBbox(
+            OffsetImage(img, zoom=zoom),
+            (x, y),
+            frameon=False,
+            box_alignment=(0.5, 0.5),
+            zorder=14,
+            pad=0,
+        )
+        ax.add_artist(artist)
+    except Exception:
+        draw_cracked(ax, x, y, s)
+
+
+def draw_square_image(ax, x, y, s=.14):
+    """Use the supplied Square PNG on the interactive plant map."""
+    symbol_path = Path(__file__).with_name("square_symbol.png")
+    if not symbol_path.exists():
+        draw_square(ax, x, y, s)
+        return
+    try:
+        img = plt.imread(str(symbol_path))
+        zoom = max(.20, min(.74, s * 3.25))
+        artist = AnnotationBbox(
+            OffsetImage(img, zoom=zoom),
+            (x, y),
+            frameon=False,
+            box_alignment=(0.5, 0.5),
+            zorder=14,
+            pad=0,
+        )
+        ax.add_artist(artist)
+    except Exception:
+        draw_square(ax, x, y, s)
+
+
 def draw_boll(ax, x, y, s=.14):
     for dx,ang,sc in [(-.25,-14,.90),(0,0,1.05),(.25,14,.90)]:
         ax.add_patch(Ellipse((x+dx*s,y+.08*s), s*.78*sc, s*1.12, angle=ang,
@@ -162,6 +251,18 @@ def draw_symbol(ax, x, y, fruit, s=.13):
     elif fruit == "Cracked Boll": draw_cracked(ax,x,y,s)
     elif fruit == "Missing Fruit": draw_missing(ax,x,y,s)
 
+def draw_interactive_symbol(ax, x, y, fruit, s=.13):
+    if fruit == "Boll":
+        draw_boll_image(ax, x, y, s)
+    elif fruit == "White Flower":
+        draw_white_flower_image(ax, x, y, s)
+    elif fruit == "Cracked Boll":
+        draw_cracked_boll_image(ax, x, y, s)
+    elif fruit == "Square":
+        draw_square_image(ax, x, y, s)
+    else:
+        draw_symbol(ax, x, y, fruit, s)
+
 def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show_ground=True):
     # Plant-map layout styled to match the supplied reference:
     # slim upright main stem, alternating fruiting branches, compact node labels,
@@ -169,7 +270,7 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
     # sweeping diagonally from the lower plant.
     node_span = max_node - min_node + 1
     fig_h = 7.0 if node_span <= 24 else 7.8
-    fig, ax = plt.subplots(figsize=(7.0, fig_h))
+    fig, ax = plt.subplots(figsize=(8.6, fig_h))
     ax.set_facecolor('white')
 
     ground = min_node - 1.05
@@ -281,7 +382,7 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
             if show_positions:
                 draw_empty(ax, x, py, .105)
             if fruit != '-':
-                draw_symbol(ax, x, py, fruit, .145)
+                draw_interactive_symbol(ax, x, py, fruit, .145)
             if show_labels:
                 ax.text(
                     x + (.07 if side > 0 else -.07),
@@ -295,7 +396,7 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
                 )
 
     # Keep the plant large and centred, with less empty space than previous versions.
-    ax.set_xlim(-2.10, 2.10)
+    ax.set_xlim(-2.45, 2.45)
     ax.set_ylim(ground-.10, stem_top+.42)
     ax.axis('off')
     fig.tight_layout(pad=.05)
@@ -759,7 +860,7 @@ with left:
 with centre:
     fig = make_map(st.session_state.plant_matrix, min_node, max_node, show_labels, show_positions, show_ground)
     png = fig_bytes(fig, "png")
-    interactive_map(png, height=590 if compact else 660)
+    interactive_map(png, height=640 if compact else 720)
     plt.close(fig)
 
     # Dedicated portrait PDF export matching the supplied reference layout.
