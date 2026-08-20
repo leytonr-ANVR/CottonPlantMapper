@@ -128,39 +128,33 @@ def draw_flower(ax, x, y, s=.15):
         r=(x+np.cos(a-.17)*s*.34,y+np.sin(a-.17)*s*.32)
         ax.add_patch(Polygon([l,tip,r],closed=True,facecolor="#31943b",edgecolor="#26752f",lw=.5,zorder=8))
 
-def draw_boll_image(ax, x, y, s=.14):
-    """Use the supplied boll PNG on the interactive plant map."""
-    symbol_path = Path(__file__).with_name("boll_symbol.png")
+def _draw_interactive_image(ax, x, y, filename, fallback, s=.14, visual_zoom=.46):
+    """Render custom fruit artwork at a consistent visible size."""
+    symbol_path = Path(__file__).with_name(filename)
     if not symbol_path.exists():
-        draw_boll(ax, x, y, s)
+        fallback(ax, x, y, s)
         return
     try:
         img = plt.imread(str(symbol_path))
-        # Scale relative to the existing fruit symbol size.
-        zoom = max(.20, min(.70, s * 3.15))
-        artist = AnnotationBbox(
-            OffsetImage(img, zoom=zoom),
-            (x, y),
-            frameon=False,
-            box_alignment=(0.5, 0.5),
-            zorder=14,
-            pad=0,
-        )
-        ax.add_artist(artist)
-    except Exception:
-        draw_boll(ax, x, y, s)
 
-def draw_white_flower_image(ax, x, y, s=.15):
-    """Use the supplied White Flower PNG on the interactive plant map."""
-    symbol_path = Path(__file__).with_name("white_flower_symbol.png")
-    if not symbol_path.exists():
-        draw_flower(ax, x, y, s)
-        return
-    try:
-        img = plt.imread(str(symbol_path))
-        zoom = max(.22, min(.78, s * 3.45))
+        # Crop transparent/light outer padding so each artwork is scaled by the
+        # actual fruit/flower rather than by the source image dimensions.
+        if img.ndim == 3 and img.shape[2] == 4:
+            alpha = img[:, :, 3]
+            mask = alpha > 0.04
+        else:
+            rgb = img[:, :, :3]
+            mask = np.min(rgb, axis=2) < 0.965
+
+        ys, xs = np.where(mask)
+        if len(xs) and len(ys):
+            pad = 2
+            x0, x1 = max(0, xs.min()-pad), min(img.shape[1], xs.max()+pad+1)
+            y0, y1 = max(0, ys.min()-pad), min(img.shape[0], ys.max()+pad+1)
+            img = img[y0:y1, x0:x1]
+
         artist = AnnotationBbox(
-            OffsetImage(img, zoom=zoom),
+            OffsetImage(img, zoom=visual_zoom),
             (x, y),
             frameon=False,
             box_alignment=(0.5, 0.5),
@@ -169,51 +163,23 @@ def draw_white_flower_image(ax, x, y, s=.15):
         )
         ax.add_artist(artist)
     except Exception:
-        draw_flower(ax, x, y, s)
+        fallback(ax, x, y, s)
+
+
+def draw_boll_image(ax, x, y, s=.14):
+    _draw_interactive_image(ax, x, y, "boll_symbol.png", draw_boll, s, visual_zoom=.46)
+
+
+def draw_white_flower_image(ax, x, y, s=.14):
+    _draw_interactive_image(ax, x, y, "white_flower_symbol.png", draw_flower, s, visual_zoom=.46)
 
 
 def draw_cracked_boll_image(ax, x, y, s=.14):
-    """Use the supplied Cracked Boll PNG on the interactive plant map."""
-    symbol_path = Path(__file__).with_name("cracked_boll_symbol.png")
-    if not symbol_path.exists():
-        draw_cracked(ax, x, y, s)
-        return
-    try:
-        img = plt.imread(str(symbol_path))
-        zoom = max(.20, min(.72, s * 3.20))
-        artist = AnnotationBbox(
-            OffsetImage(img, zoom=zoom),
-            (x, y),
-            frameon=False,
-            box_alignment=(0.5, 0.5),
-            zorder=14,
-            pad=0,
-        )
-        ax.add_artist(artist)
-    except Exception:
-        draw_cracked(ax, x, y, s)
+    _draw_interactive_image(ax, x, y, "cracked_boll_symbol.png", draw_cracked, s, visual_zoom=.46)
 
 
 def draw_square_image(ax, x, y, s=.14):
-    """Use the supplied Square PNG on the interactive plant map."""
-    symbol_path = Path(__file__).with_name("square_symbol.png")
-    if not symbol_path.exists():
-        draw_square(ax, x, y, s)
-        return
-    try:
-        img = plt.imread(str(symbol_path))
-        zoom = max(.20, min(.74, s * 3.25))
-        artist = AnnotationBbox(
-            OffsetImage(img, zoom=zoom),
-            (x, y),
-            frameon=False,
-            box_alignment=(0.5, 0.5),
-            zorder=14,
-            pad=0,
-        )
-        ax.add_artist(artist)
-    except Exception:
-        draw_square(ax, x, y, s)
+    _draw_interactive_image(ax, x, y, "square_symbol.png", draw_square, s, visual_zoom=.46)
 
 
 def draw_boll(ax, x, y, s=.14):

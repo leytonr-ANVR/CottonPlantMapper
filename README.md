@@ -1,13 +1,10 @@
-# Cotton Plant Mapper v37
+# Cotton Plant Mapper v38
 
-White Flower symbol updated.
+Interactive map symbol scaling improved.
 
-The newly supplied cotton flower artwork is now used for **White Flower** on the interactive Cotton Plant Map.
+Boll, White Flower, Square and Cracked Boll are now normalised to a similar
+visual size. The renderer crops excess transparent/light padding from each
+source image before applying a shared display scale, so one symbol should no
+longer appear much larger or smaller simply because its PNG canvas differs.
 
-Current custom interactive symbols:
-- Boll
-- White Flower — updated artwork
-- Square
-- Cracked Boll
-
-Missing Fruit and Position (Empty) remain unchanged.
+PDF export is unchanged.
