@@ -1,10 +1,13 @@
-# Cotton Plant Mapper v19
+# Cotton Plant Mapper v20
 
-Node Data Entry has been redesigned to match the supplied compact layout:
+## Node Type Editing
+The **Type** for every node can now be changed directly in the Node Entry table.
 
-- Nodes displayed highest-to-lowest
-- Compact V / R / VL type badges
-- Only Node, Type, Pos 1, Pos 2 and Pos 3 shown in the main entry grid
-- Fruit choices shown as compact dropdowns with symbols
-- Add Node, Remove Last Node and Auto Fill buttons aligned across the bottom
-- Existing positions 4–6 remain in the underlying data model for advanced use
+Available types:
+- V — Vegetative
+- R — Reproductive
+- VL — Vegetative Lateral
+
+When changed to Vegetative, fruiting positions are cleared and Position Count becomes 0.
+When a Vegetative node is changed to Reproductive, it defaults to 3 positions with Position 1 set to Square.
+Vegetative Lateral nodes can also carry fruiting positions.

@@ -376,6 +376,11 @@ div[data-testid="stPyplot"] img{
   margin-bottom:0!important;
 }
 
+
+.compact-entry [data-testid="stSelectbox"] div[data-baseweb="select"]{
+  width:100% !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -439,11 +444,25 @@ with left:
 
             with ctype:
                 current_type = row["Node Type"]
-                pill_class = "type-v" if current_type == "Vegetative" else ("type-vl" if current_type == "Vegetative Lateral" else "type-r")
-                st.markdown(
-                    f'<div class="type-pill {pill_class}">{TYPE_SHORT[current_type]}</div>',
-                    unsafe_allow_html=True
+                new_type = st.selectbox(
+                    f"Node {node} Type",
+                    options=NODE_TYPES,
+                    index=NODE_TYPES.index(current_type) if current_type in NODE_TYPES else 1,
+                    format_func=lambda x: TYPE_SHORT[x],
+                    key=f"node_{node}_type",
+                    label_visibility="collapsed"
                 )
+                df_edit.loc[df_edit["Node"] == node, "Node Type"] = new_type
+
+                # Apply sensible defaults when changing node type.
+                if new_type == "Vegetative":
+                    df_edit.loc[df_edit["Node"] == node, "Position Count"] = 0
+                    for p in range(1, MAX_POSITIONS + 1):
+                        df_edit.loc[df_edit["Node"] == node, f"Position {p}"] = "-"
+                elif current_type == "Vegetative" and new_type in ["Reproductive", "Vegetative Lateral"]:
+                    df_edit.loc[df_edit["Node"] == node, "Position Count"] = 3
+                    if new_type == "Reproductive":
+                        df_edit.loc[df_edit["Node"] == node, "Position 1"] = "Square"
 
             # Keep row interaction compact: each visible position is a dropdown.
             visible_positions = []
@@ -472,7 +491,8 @@ with left:
                     visible_last = p
 
             current_count = int(df_edit.loc[df_edit["Node"] == node, "Position Count"].iloc[0])
-            if row["Node Type"] == "Vegetative":
+            selected_type = df_edit.loc[df_edit["Node"] == node, "Node Type"].iloc[0]
+            if selected_type == "Vegetative":
                 df_edit.loc[df_edit["Node"] == node, "Position Count"] = 0
             elif visible_last > current_count:
                 df_edit.loc[df_edit["Node"] == node, "Position Count"] = visible_last
