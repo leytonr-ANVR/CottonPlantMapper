@@ -132,28 +132,62 @@ def draw_missing(ax, x, y, s=.12):
     # Brown dashed circle, matching the missing-position symbol in the requested legend.
     ax.add_patch(Circle((x,y),s*.72,fill=False,edgecolor="#8a3b1f",lw=1.5,linestyle=(0,(4,3)),zorder=9))
 
+def draw_empty_position(ax, x, y, s=.12):
+    # Open green circle used for an empty/available fruiting position.
+    ax.add_patch(
+        Circle(
+            (x, y), s*.70,
+            facecolor="white",
+            edgecolor="#087a35",
+            lw=1.5,
+            zorder=9
+        )
+    )
+
 def draw_symbol(ax, x, y, fruit, s=.13):
     if fruit == "Boll": draw_boll(ax,x,y,s)
     elif fruit == "White Flower": draw_white_flower(ax,x,y,s)
     elif fruit == "Square": draw_square(ax,x,y,s)
     elif fruit == "Cracked Boll": draw_cracked_boll(ax,x,y,s)
     elif fruit == "Missing Fruit": draw_missing(ax,x,y,s)
+    elif fruit == "-": draw_empty_position(ax,x,y,s)
 
 def legend_image():
-    fig, ax = plt.subplots(figsize=(2.9, 3.35))
-    ax.set_xlim(0, 3); ax.set_ylim(0, 6); ax.axis("off")
+    # Compact legend matching the supplied reference.
+    fig, ax = plt.subplots(figsize=(2.65, 3.15))
+    ax.set_xlim(0, 3.0)
+    ax.set_ylim(0, 6.55)
+    ax.axis("off")
+
+    ax.text(
+        0.18, 6.22, "Legend",
+        ha="left", va="center",
+        fontsize=12.5, fontweight="bold",
+        color="#14213d"
+    )
+
     items = [
-        ("Boll", draw_boll),
-        ("White Flower", draw_white_flower),
-        ("Square", draw_square),
-        ("Cracked Boll", draw_cracked_boll),
-        ("Missing Fruit", draw_missing),
+        ("Boll", draw_boll, .18),
+        ("White Flower", draw_white_flower, .18),
+        ("Square", draw_square, .17),
+        ("Cracked Boll", draw_cracked_boll, .18),
+        ("Missing Fruit", draw_missing, .17),
+        ("Position (Empty)", draw_empty_position, .17),
     ]
-    for i, (label, fn) in enumerate(items):
-        y = 5.35 - i*1.02
-        fn(ax, .55, y, .19 if label != "White Flower" else .20)
-        ax.text(1.02, y, label, va="center", ha="left", fontsize=12, color="#0b2e55", fontweight="bold")
-    fig.tight_layout(pad=.25)
+
+    start_y = 5.48
+    step = .90
+    for i, (label, fn, size) in enumerate(items):
+        y = start_y - i * step
+        fn(ax, .48, y, size)
+        ax.text(
+            .90, y, label,
+            va="center", ha="left",
+            fontsize=10.5,
+            color="#111111"
+        )
+
+    fig.tight_layout(pad=.15)
     return fig
 
 def make_figure(df, min_node, max_node, show_labels=True, show_positions=True, show_ground=True):
@@ -194,9 +228,9 @@ def make_figure(df, min_node, max_node, show_labels=True, show_positions=True, s
                 coords=[(p,side*(.28+(bl-.28)*(p/max(effective,1))),y+.03+.18*(p/max(effective,1))) for p in range(1,effective+1)]
             for p,x,py in coords:
                 fruit=row[f"Position {p}"]
-                if show_positions:
-                    ax.add_patch(Circle((x,py),.052,facecolor="white",edgecolor="#008f45",lw=1.1,zorder=7))
-                if fruit != "-":
+                if fruit == "-" and show_positions:
+                    draw_empty_position(ax, x, py, .10)
+                elif fruit != "-":
                     draw_symbol(ax,x,py,fruit,.13)
                 if show_labels:
                     ax.text(x+(0.07 if side>0 else -0.07),py+.10,f"{node}-{p}",fontsize=6.5,
@@ -329,7 +363,7 @@ div[data-testid="stPyplot"] img{
 
 .node-head{
   display:grid;
-  grid-template-columns:42px 48px 1fr 1fr 1fr;
+  grid-template-columns:38px 115px 1.18fr 1.02fr 1.02fr;
   gap:6px;
   align-items:center;
   padding:5px 6px 3px;
@@ -341,7 +375,7 @@ div[data-testid="stPyplot"] img{
 }
 .node-row{
   display:grid;
-  grid-template-columns:42px 48px 1fr 1fr 1fr;
+  grid-template-columns:38px 115px 1.18fr 1.02fr 1.02fr;
   gap:6px;
   align-items:center;
   padding:4px 6px;
@@ -379,6 +413,17 @@ div[data-testid="stPyplot"] img{
 
 .compact-entry [data-testid="stSelectbox"] div[data-baseweb="select"]{
   width:100% !important;
+}
+
+
+/* Node Type dropdown: enough room to show the type currently selected. */
+.compact-entry [data-testid="stSelectbox"] [data-baseweb="select"] > div{
+    white-space:nowrap !important;
+    overflow:hidden !important;
+}
+.compact-entry [data-testid="stSelectbox"] [data-baseweb="select"] span{
+    font-size:12px !important;
+    font-weight:600 !important;
 }
 
 </style>
@@ -434,7 +479,7 @@ with left:
 
         for idx, row in display_df.iterrows():
             node = int(row["Node"])
-            cnode, ctype, cp1, cp2, cp3 = st.columns([0.42, 0.48, 1.20, 1.05, 1.05], gap="small")
+            cnode, ctype, cp1, cp2, cp3 = st.columns([0.38, 1.15, 1.18, 1.02, 1.02], gap="small")
 
             with cnode:
                 st.markdown(
@@ -448,7 +493,11 @@ with left:
                     f"Node {node} Type",
                     options=NODE_TYPES,
                     index=NODE_TYPES.index(current_type) if current_type in NODE_TYPES else 1,
-                    format_func=lambda x: TYPE_SHORT[x],
+                    format_func=lambda x: (
+                        "V  Vegetative" if x == "Vegetative"
+                        else "R  Reproductive" if x == "Reproductive"
+                        else "VL  Vegetative Lateral"
+                    ),
                     key=f"node_{node}_type",
                     label_visibility="collapsed"
                 )
@@ -532,7 +581,6 @@ with centre:
     plt.close(fig)
 
 with right:
-    st.markdown('<div class="legend-card"><h4 style="color:#062d57;margin-top:0">Legend</h4></div>',unsafe_allow_html=True)
     lf=legend_image()
     st.pyplot(lf,use_container_width=True)
     plt.close(lf)

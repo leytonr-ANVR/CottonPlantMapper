@@ -1,13 +1,12 @@
-# Cotton Plant Mapper v20
+# Cotton Plant Mapper v22
 
-## Node Type Editing
-The **Type** for every node can now be changed directly in the Node Entry table.
+Legend symbols updated to match the supplied reference:
 
-Available types:
-- V — Vegetative
-- R — Reproductive
-- VL — Vegetative Lateral
+- Boll — green closed boll
+- White Flower — white/pale pink cotton flower
+- Square — green pointed square
+- Cracked Boll — green cracked/open boll with visible white cotton
+- Missing Fruit — brown dashed circle
+- Position (Empty) — open green circle
 
-When changed to Vegetative, fruiting positions are cleared and Position Count becomes 0.
-When a Vegetative node is changed to Reproductive, it defaults to 3 positions with Position 1 set to Square.
-Vegetative Lateral nodes can also carry fruiting positions.
+The same symbol functions are used in the plant map and legend for consistency.
