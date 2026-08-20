@@ -1,17 +1,15 @@
-# Cotton Plant Mapper v27
+# Cotton Plant Mapper v28
 
-PDF export redesigned to match the supplied cotton_plant_map (7).pdf.
+PDF export now includes a compact report header with:
 
-PDF changes:
-- clean portrait page
-- plant occupies almost the full page
-- no dashboard/header clutter
-- slim upright green main stem
-- alternating reproductive branches
-- simple vegetative branches on lower nodes
-- node numbers close to the stem
-- position labels next to active fruit
-- brown ground line at the bottom
-- terminal fork at the top
+- Farm
+- Paddock
+- Grower
+- Date
+- Total Nodes
+- Total Positions
+- Held Positions
+- Missing Fruit
+- Retention %
 
-The web preview remains interactive with Zoom In, Zoom Out and Fit.
+The plant diagram remains the main feature of the portrait PDF, with the report information kept in a clean, compact area at the top.

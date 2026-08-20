@@ -302,11 +302,68 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
     return fig
 
 
-def make_pdf_report(df, min_node, max_node, show_labels=True):
+def make_pdf_report(df, min_node, max_node, farm='', paddock='', grower='', report_date='', show_labels=True):
     """Clean portrait PDF styled like the supplied cotton_plant_map (7).pdf."""
-    # A4-ish portrait ratio, with the plant occupying most of the page.
+    # A4 portrait report. Keep the plant dominant while adding a compact header.
     fig, ax = plt.subplots(figsize=(8.27, 11.69))
     ax.set_facecolor('white')
+
+    report_metrics = metrics(df)
+
+    # Compact report title and details.
+    fig.text(
+        0.06, 0.973, "Cotton Plant Map",
+        ha="left", va="top",
+        fontsize=18, fontweight="bold", color="#062d57"
+    )
+
+    detail_left = []
+    detail_right = []
+    if farm:
+        detail_left.append(f"Farm: {farm}")
+    if paddock:
+        detail_left.append(f"Paddock: {paddock}")
+    if grower:
+        detail_right.append(f"Grower: {grower}")
+    if report_date:
+        detail_right.append(f"Date: {report_date}")
+
+    fig.text(
+        0.06, 0.946,
+        "   |   ".join(detail_left) if detail_left else "Farm: -   |   Paddock: -",
+        ha="left", va="top",
+        fontsize=9.5, color="#3f4f5f"
+    )
+    fig.text(
+        0.55, 0.946,
+        "   |   ".join(detail_right) if detail_right else "Grower: -   |   Date: -",
+        ha="left", va="top",
+        fontsize=9.5, color="#3f4f5f"
+    )
+
+    retention_text = (
+        f"{report_metrics['retention']:.1f}%"
+        if report_metrics["retention"] is not None else "-"
+    )
+    summary_text = (
+        f"Total Nodes: {report_metrics['total_nodes']}     "
+        f"Total Positions: {report_metrics['total_positions']}     "
+        f"Held Positions: {report_metrics['held_positions']}     "
+        f"Missing Fruit: {report_metrics['missing_positions']}     "
+        f"Retention: {retention_text}"
+    )
+
+    fig.text(
+        0.50, 0.916, summary_text,
+        ha="center", va="top",
+        fontsize=9.4, fontweight="bold", color="#162c45",
+        bbox=dict(
+            boxstyle="round,pad=0.45",
+            facecolor="#f7fafb",
+            edgecolor="#c7d4d8",
+            linewidth=0.8
+        )
+    )
 
     ground = min_node - 1.08
     stem_top = max_node + .72
@@ -400,7 +457,7 @@ def make_pdf_report(df, min_node, max_node, show_labels=True):
     ax.set_xlim(-2.55, 2.55)
     ax.set_ylim(ground-.14, stem_top+.38)
     ax.axis('off')
-    fig.subplots_adjust(left=.035, right=.965, top=.985, bottom=.025)
+    fig.subplots_adjust(left=.035, right=.965, top=.885, bottom=.025)
     return fig
 
 def legend_figure():
@@ -694,6 +751,10 @@ with centre:
         st.session_state.plant_matrix,
         min_node,
         max_node,
+        farm=farm,
+        paddock=paddock,
+        grower=grower,
+        report_date=report_date.strftime("%d/%m/%Y") if report_date else "",
         show_labels=True,
     )
     pdf = fig_bytes(pdf_fig, "pdf")
