@@ -27,7 +27,13 @@ def blank_matrix(min_node=5, max_node=22):
         ],
     }
     for pos in range(1, MAX_POSITIONS + 1):
-        data[f"Position {pos}"] = ["-"] * n
+        if pos == 1:
+            data[f"Position {pos}"] = [
+                "-" if node <= 7 else "Square"
+                for node in range(min_node, max_node + 1)
+            ]
+        else:
+            data[f"Position {pos}"] = ["-"] * n
     data["Notes"] = [""] * n
     return pd.DataFrame(data)
 

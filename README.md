@@ -1,13 +1,9 @@
-# Cotton Plant Mapper v12
+# Cotton Plant Mapper v13
 
-The PDF/report header has been cleaned up to reduce clutter.
+Updated default reproductive-node fruiting data:
 
-## Header improvements
-- Smaller AGnVET Rural logo
-- Report title positioned separately from the logo
-- Farm and Paddock grouped on the left
-- Grower and Date grouped on the right
-- Dashboard totals moved to a separate summary row
-- Extra spacing added before the plant diagram/Terminal
-
-This fixes the overlap visible in the previous report header.
+- Nodes 1–7 default to Vegetative with 0 positions.
+- Nodes 8+ default to Reproductive with 3 positions.
+- **Position 1 on every default reproductive node now starts as Square.**
+- Positions 2 and 3 remain blank by default.
+- All values can still be changed manually.
