@@ -1,12 +1,13 @@
-# Cotton Plant Mapper v42
+# Cotton Plant Mapper v43
 
-Interactive map now displays each node's type.
+Interactive plant branch geometry updated to better match the supplied reference.
 
-Node type badges:
-- **R** — Reproductive, green
-- **V** — Vegetative, blue
-- **VL** — Vegetative Lateral, orange
+Changes:
+- reproductive branch angle now changes from node to node
+- branches alternate between downward sweep, near-level and upward angles
+- multi-position branches have natural bends rather than repeating one straight shape
+- lower branches are slightly longer and more sweeping
+- fruit symbols follow the angle of each branch
+- node types, custom fruit symbols, Zoom and Fit remain unchanged
 
-The badge is displayed beside each node number on the interactive plant map and updates according to the Type selected in Node Data Entry.
-
-PDF and PNG export symbol artwork remains unchanged.
+This change applies to the interactive map.

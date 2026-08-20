@@ -352,29 +352,75 @@ def make_map(df, min_node, max_node, show_labels=True, show_positions=True, show
                     coords.append((p, x, py))
 
         else:
-            # Fruiting branch: short horizontal section then a slight angled rise,
-            # closely matching the supplied map style.
-            branch_len = .68 + max(0, draw_count - 1) * .43
-            first_x = side * min(.48, branch_len)
+            # Fruiting branches change angle/shape at each node.
+            # This gives the plant the natural stepped/sweeping appearance in
+            # the supplied reference instead of repeating one branch angle.
+            branch_len = .72 + max(0, draw_count - 1) * .46
+
+            # Repeat a gentle set of natural branch profiles up the plant.
+            angle_profiles = [
+                (-.28, -.18),   # sweeping downward
+                (-.16, -.04),   # shallow downward
+                (-.04,  .08),   # nearly level
+                ( .08,  .20),   # gentle rise
+                ( .16,  .30),   # stronger rise
+            ]
+            inner_dy, outer_dy = angle_profiles[(node - min_node) % len(angle_profiles)]
+
+            # Lower branches are generally longer and more sweeping.
+            height_frac = (node - min_node) / max(1, (max_node - min_node))
+            branch_len *= (1.12 - .18 * height_frac)
+
+            first_abs = min(.46, branch_len * .48)
+            mid_abs = min(branch_len * .76, first_abs + .46)
+
+            first_x = side * first_abs
+            mid_x = side * mid_abs
             end_x = side * branch_len
-            end_y = y + (.16 if draw_count <= 2 else .22)
+
+            first_y = y + inner_dy * .32
+            mid_y = y + inner_dy
+            end_y = y + outer_dy
 
             if draw_count <= 1:
-                ax.plot([0,end_x],[y,y+.07], color='#008b43', lw=2.35,
-                        solid_capstyle='round', zorder=3)
+                # Even single-position branches get their own node-specific angle.
+                ax.plot(
+                    [0, end_x],
+                    [y, end_y],
+                    color='#008b43', lw=2.35,
+                    solid_capstyle='round', zorder=3
+                )
             else:
-                ax.plot([0,first_x,end_x],[y,y+.01,end_y], color='#008b43', lw=2.35,
-                        solid_capstyle='round', zorder=3)
+                # Multi-position branch uses two bends for a more natural cotton
+                # fruiting-branch shape.
+                ax.plot(
+                    [0, first_x, mid_x, end_x],
+                    [y, first_y, mid_y, end_y],
+                    color='#008b43', lw=2.35,
+                    solid_capstyle='round',
+                    solid_joinstyle='round',
+                    zorder=3
+                )
 
             coords = []
             if effective > 0:
                 for p in range(1, effective + 1):
-                    if effective == 1:
-                        frac = 1.0
+                    frac = 1.0 if effective == 1 else (p - 1) / (effective - 1)
+                    x_abs = .43 + max(0, branch_len - .43) * frac
+                    x = side * x_abs
+
+                    # Interpolate along the bent branch so fruit follows the
+                    # changing branch angle instead of sitting on a straight line.
+                    if x_abs <= first_abs or first_abs >= branch_len:
+                        local = x_abs / max(first_abs, .001)
+                        py = y + (first_y - y) * local
+                    elif x_abs <= mid_abs or mid_abs >= branch_len:
+                        local = (x_abs - first_abs) / max(mid_abs - first_abs, .001)
+                        py = first_y + (mid_y - first_y) * local
                     else:
-                        frac = (p - 1) / (effective - 1)
-                    x = side * (.43 + (branch_len - .43) * frac)
-                    py = y + .03 + (end_y - y - .03) * frac
+                        local = (x_abs - mid_abs) / max(branch_len - mid_abs, .001)
+                        py = mid_y + (end_y - mid_y) * local
+
                     coords.append((p, x, py))
 
         # Fruit/position marks. Position circles are drawn behind fruit, like the reference.
